@@ -1,0 +1,3379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Flipkart Gridlock 2.0 — Bengaluru City Intelligence Platform</title>
+<meta name="description" content="Enterprise-grade AI traffic intelligence, emergency response, and logistics optimization for Bengaluru."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ════════════════════════════════════════════════
+   DESIGN SYSTEM
+════════════════════════════════════════════════ */
+:root{
+  --bg0:#04080f;--bg1:#080e18;--bg2:#0c1525;--bg3:#111e30;--bg4:#16263c;--bg5:#1b2f48;
+  --b1:rgba(99,179,255,.08);--b2:rgba(99,179,255,.16);--b3:rgba(99,179,255,.28);--b4:rgba(99,179,255,.45);
+  --blue:#3b9eff;--cyan:#00d4ff;--green:#00e676;--yellow:#ffd740;--orange:#ff8c42;--red:#ff4444;--pink:#ff4da6;--violet:#b06fff;
+  --text1:#edf2ff;--text2:#8099b8;--text3:#4a6280;--text4:#2d4259;
+  --gblue:0 0 24px rgba(59,158,255,.4);--gcyan:0 0 24px rgba(0,212,255,.4);--ggreen:0 0 24px rgba(0,230,118,.4);
+  --gred:0 0 24px rgba(255,68,68,.4);--gyellow:0 0 24px rgba(255,215,64,.4);--gpink:0 0 24px rgba(255,77,166,.4);
+  --r:10px;--rl:16px;--rx:22px;--tr:all .28s cubic-bezier(.4,0,.2,1);
+  --sidebar:240px;--header:58px;--tabbar:50px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Inter',sans-serif;background:var(--bg0);color:var(--text1);font-size:13px;}
+
+/* GRID BACKGROUND */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(59,158,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(59,158,255,.025) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--b3);border-radius:4px;}
+
+/* ── HEADER ── */
+#hdr{
+  position:fixed;top:0;left:0;right:0;height:var(--header);z-index:2000;
+  background:rgba(4,8,15,.88);backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--b2);
+  display:flex;align-items:center;padding:0 20px;gap:16px;
+}
+.hbrand{display:flex;align-items:center;gap:12px;}
+.hlogo{
+  width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,#ff6b00,#ffd740);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#000;
+}
+.htitle{font-size:14px;font-weight:800;letter-spacing:-.3px;}
+.hsub{font-size:10px;color:var(--text3);font-weight:400;}
+
+.hstatus{display:flex;align-items:center;gap:14px;margin-left:auto;}
+.badge{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:20px;
+  font-size:11px;font-weight:700;border:1px solid;cursor:default;
+}
+.badge-live{background:rgba(0,230,118,.1);border-color:rgba(0,230,118,.3);color:var(--green);}
+.badge-ai{background:rgba(59,158,255,.1);border-color:rgba(59,158,255,.3);color:var(--blue);}
+.badge-warn{background:rgba(255,68,68,.1);border-color:rgba(255,68,68,.3);color:var(--red);}
+.ldot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pdot 1.6s ease-in-out infinite;}
+@keyframes pdot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.7);}}
+
+#demo-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 18px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(255,77,166,.15),rgba(176,111,255,.15));
+  border:1px solid rgba(255,77,166,.4);
+  color:var(--pink);font-weight:700;font-size:12px;cursor:pointer;
+  transition:var(--tr);font-family:'Inter',sans-serif;
+}
+#judge-mode-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 16px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(255,215,64,.12),rgba(255,140,66,.12));
+  border:1px solid rgba(255,215,64,.4);
+  color:var(--yellow);font-weight:700;font-size:12px;cursor:pointer;
+  transition:var(--tr);font-family:'Inter',sans-serif;
+}
+#judge-mode-btn:hover{background:linear-gradient(135deg,rgba(255,215,64,.22),rgba(255,140,66,.22));box-shadow:0 0 20px rgba(255,215,64,.3);}
+#demo-btn:hover{background:linear-gradient(135deg,rgba(255,77,166,.3),rgba(176,111,255,.3));box-shadow:var(--gpink);}
+#demo-btn.running{animation:demopulse 1s ease-in-out infinite;}
+@keyframes demopulse{0%,100%{box-shadow:0 0 8px rgba(255,77,166,.4);}50%{box-shadow:0 0 28px rgba(255,77,166,.9);}}
+
+#clock{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text3);}
+
+/* ── LAYOUT ── */
+#app{
+  position:fixed;top:var(--header);left:0;right:0;bottom:0;
+  display:flex;z-index:1;
+}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:var(--sidebar);flex-shrink:0;
+  background:var(--bg1);border-right:1px solid var(--b1);
+  display:flex;flex-direction:column;overflow-y:auto;
+  padding:10px 8px 16px;
+}
+.sg{font-size:9px;font-weight:700;letter-spacing:1.8px;color:var(--text4);
+  padding:10px 10px 5px;text-transform:uppercase;}
+.ni{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 12px;border-radius:var(--r);cursor:pointer;
+  transition:var(--tr);color:var(--text2);
+  border:1px solid transparent;font-size:12.5px;font-weight:500;
+  user-select:none;white-space:nowrap;overflow:hidden;
+}
+.ni:hover{background:var(--bg4);color:var(--text1);}
+.ni.active{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.25);color:var(--blue);}
+.ni .ic{font-size:14px;flex-shrink:0;width:20px;text-align:center;}
+.ni .nb{
+  margin-left:auto;font-size:9px;font-weight:800;
+  padding:1px 6px;border-radius:8px;flex-shrink:0;
+}
+.nb-red{background:rgba(255,68,68,.2);color:var(--red);}
+.nb-green{background:rgba(0,230,118,.2);color:var(--green);}
+.nb-blue{background:rgba(59,158,255,.2);color:var(--blue);}
+.nb-yellow{background:rgba(255,215,64,.2);color:var(--yellow);}
+.nb-pink{background:rgba(255,77,166,.2);color:var(--pink);}
+
+/* ── MAIN ── */
+#main{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+}
+
+/* ── TABBAR ── */
+#tabbar{
+  height:var(--tabbar);flex-shrink:0;
+  background:var(--bg2);border-bottom:1px solid var(--b1);
+  display:flex;align-items:center;padding:0 16px;gap:4px;
+  overflow-x:auto;
+}
+.tb{
+  display:flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;
+  cursor:pointer;transition:var(--tr);border:1px solid transparent;
+  background:transparent;color:var(--text2);font-family:'Inter',sans-serif;
+  flex-shrink:0;
+}
+.tb:hover{background:var(--bg4);color:var(--text1);}
+.tb.active{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.3);color:var(--blue);}
+#tabbar .spacer{flex:1;}
+#ref-ct{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);padding:0 8px;}
+
+/* ── CONTENT ── */
+#content{flex:1;overflow-y:auto;padding:20px;}
+
+/* ── PANEL ── */
+.panel{display:none;flex-direction:column;gap:18px;}
+.panel.active{display:flex;}
+
+/* ── CARDS ── */
+.card{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rl);
+  overflow:hidden;transition:var(--tr);
+}
+.card:hover{border-color:var(--b2);}
+.ch{
+  display:flex;align-items:center;gap:10px;
+  padding:13px 16px;border-bottom:1px solid var(--b1);
+  font-size:13px;font-weight:700;
+}
+.ch .icon{font-size:15px;}
+.ch .hdesc{font-size:11px;color:var(--text3);font-weight:400;margin-left:4px;}
+.cb{padding:16px;}
+
+/* ── KPI ROW ── */
+.krow{display:grid;gap:12px;}
+.krow-4{grid-template-columns:repeat(4,1fr);}
+.krow-3{grid-template-columns:repeat(3,1fr);}
+.krow-5{grid-template-columns:repeat(5,1fr);}
+.krow-6{grid-template-columns:repeat(6,1fr);}
+.krow-2{grid-template-columns:repeat(2,1fr);}
+
+.kcard{
+  background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rl);
+  padding:16px 18px;position:relative;overflow:hidden;transition:var(--tr);
+}
+.kcard::after{
+  content:'';position:absolute;top:0;right:0;width:60%;height:100%;
+  background:linear-gradient(135deg,transparent,rgba(59,158,255,.03));
+  pointer-events:none;
+}
+.kcard:hover{border-color:var(--b2);transform:translateY(-1px);}
+.kl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px;}
+.kv{font-size:26px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:-1px;line-height:1;}
+.kd{font-size:11px;margin-top:6px;color:var(--text3);}
+.ki{position:absolute;top:14px;right:14px;font-size:20px;opacity:.7;}
+.c-green{color:var(--green);} .c-red{color:var(--red);} .c-yellow{color:var(--yellow);}
+.c-blue{color:var(--blue);} .c-cyan{color:var(--cyan);} .c-orange{color:var(--orange);}
+.c-pink{color:var(--pink);} .c-violet{color:var(--violet);}
+
+/* ── GRID LAYOUTS ── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+.g13{display:grid;grid-template-columns:1fr 320px;gap:16px;}
+.g31{display:grid;grid-template-columns:300px 1fr;gap:16px;}
+.gfull{grid-column:1/-1;}
+
+/* ── MAP ── */
+#map{height:440px;width:100%;background:var(--bg0);}
+.leaflet-container{background:#050c18!important;font-family:'Inter',sans-serif!important;}
+.leaflet-tile{filter:brightness(.7) saturate(.35) hue-rotate(185deg);}
+.leaflet-popup-content-wrapper{
+  background:var(--bg3)!important;border:1px solid var(--b3)!important;
+  border-radius:12px!important;color:var(--text1)!important;
+  font-family:'Inter',sans-serif!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;
+}
+.leaflet-popup-tip{background:var(--bg3)!important;}
+.popup-t{font-size:13px;font-weight:700;margin-bottom:8px;}
+.popup-r{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--b1);}
+.popup-r:last-child{border:none;}
+.popup-k{color:var(--text3);}
+.popup-v{font-weight:600;font-family:'JetBrains Mono',monospace;}
+
+/* ── PREDICTION CARDS ── */
+.pred-card{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px;transition:var(--tr);
+}
+.pred-card:hover{border-color:var(--b3);}
+.pred-zone-name{font-size:12px;font-weight:700;margin-bottom:10px;color:var(--text1);}
+.pred-ci-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.pred-ci-label{font-size:10px;color:var(--text3);width:55px;flex-shrink:0;}
+.pred-ci-bar{flex:1;height:5px;background:var(--bg5);border-radius:3px;overflow:hidden;}
+.pred-ci-fill{height:100%;border-radius:3px;transition:width 1s ease;}
+.pred-ci-val{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;width:36px;text-align:right;}
+.pred-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:10px;}
+.pred-conf{color:var(--green);font-weight:700;}
+.pred-trend{font-size:12px;}
+
+/* ── INCIDENT CARDS ── */
+.incident-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.inc-card{
+  background:var(--bg3);border-radius:var(--r);padding:14px;
+  border:1px solid var(--b1);border-left:3px solid;
+  transition:var(--tr);cursor:pointer;
+}
+.inc-card:hover{background:var(--bg4);transform:translateX(3px);}
+.inc-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.inc-icon{font-size:20px;width:32px;text-align:center;}
+.inc-title-row{}
+.inc-title{font-size:13px;font-weight:700;}
+.inc-time{font-size:10px;color:var(--text3);margin-top:1px;}
+.inc-badge{
+  margin-left:auto;font-size:9px;font-weight:800;
+  padding:2px 8px;border-radius:12px;
+}
+.inc-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;}
+.inc-k{color:var(--text3);}
+.inc-v{font-weight:600;}
+.inc-action{
+  margin-top:10px;padding:6px 12px;border-radius:6px;
+  font-size:11px;font-weight:700;text-align:center;
+  background:var(--bg5);color:var(--blue);border:1px solid var(--b2);
+}
+
+/* ── TWIN SIMULATOR ── */
+.scenario-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.scenario-btn{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px 10px;text-align:center;cursor:pointer;transition:var(--tr);
+}
+.scenario-btn:hover{border-color:var(--b3);background:var(--bg4);}
+.scenario-btn.active{border-color:var(--yellow);background:rgba(255,215,64,.08);}
+.sb-icon{font-size:24px;margin-bottom:8px;}
+.sb-name{font-size:11px;font-weight:700;}
+.sb-desc{font-size:10px;color:var(--text3);margin-top:3px;}
+
+.twin-result{
+  display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:start;
+}
+.twin-state{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:16px;}
+.twin-vs{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:20px 0;}
+.twin-arrow{font-size:28px;color:var(--text3);}
+.twin-row{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px solid var(--b1);}
+.twin-row:last-child{border:none;}
+
+/* ── EMERGENCY ── */
+.emg-route-container{position:relative;}
+.emg-steps{display:flex;flex-direction:column;gap:0;}
+.emg-step{display:flex;gap:14px;align-items:flex-start;}
+.emg-step-icon-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.emg-step-dot{
+  width:14px;height:14px;border-radius:50%;border:2px solid;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.emg-step-line{width:2px;height:28px;background:linear-gradient(to bottom,var(--b3),transparent);}
+.emg-step-content{padding-bottom:24px;}
+.emg-step-title{font-size:12px;font-weight:700;}
+.emg-step-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+
+.vehicle-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.vcard{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px;text-align:center;cursor:pointer;transition:var(--tr);
+}
+.vcard:hover{border-color:var(--b3);}
+.vcard.selected{border-color:var(--red);background:rgba(255,68,68,.08);}
+.vcard-icon{font-size:28px;margin-bottom:8px;}
+.vcard-name{font-size:12px;font-weight:700;}
+
+/* ── FLIPKART ── */
+.delivery-card{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px;display:flex;align-items:flex-start;gap:12px;
+  transition:var(--tr);cursor:pointer;
+}
+.delivery-card:hover{background:var(--bg4);}
+.del-icon{
+  width:36px;height:36px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;flex-shrink:0;
+}
+.del-meta{flex:1;}
+.del-id{font-size:12px;font-weight:700;margin-bottom:4px;}
+.del-route{font-size:11px;color:var(--text3);}
+.del-badge{
+  font-size:10px;font-weight:700;padding:2px 8px;
+  border-radius:8px;margin-left:auto;flex-shrink:0;
+}
+.del-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;}
+.del-stat{background:var(--bg5);border-radius:6px;padding:5px 8px;text-align:center;}
+.del-stat-v{font-size:13px;font-weight:800;font-family:'JetBrains Mono',monospace;}
+.del-stat-l{font-size:9px;color:var(--text3);}
+
+/* ── XAI CARDS ── */
+.xai-card{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);
+  padding:16px;
+}
+.xai-title{font-size:13px;font-weight:700;margin-bottom:12px;}
+.xai-reason{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;border-bottom:1px solid var(--b1);
+  font-size:12px;
+}
+.xai-reason:last-child{border:none;}
+.xai-check{
+  width:20px;height:20px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;flex-shrink:0;
+}
+.xai-check-yes{background:rgba(0,230,118,.15);color:var(--green);}
+.xai-check-no{background:rgba(255,68,68,.15);color:var(--red);}
+.xai-bar{flex:1;height:4px;background:var(--bg5);border-radius:2px;overflow:hidden;margin-left:8px;}
+.xai-bar-fill{height:100%;border-radius:2px;}
+.xai-val{font-size:10px;font-weight:700;width:30px;text-align:right;}
+.xai-conf-ring{
+  width:80px;height:80px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:900;font-family:'JetBrains Mono',monospace;
+  border:3px solid;position:relative;flex-shrink:0;
+}
+
+/* ── SIGNAL DISPLAY ── */
+.signal-board{
+  background:var(--bg0);border:2px solid var(--b2);border-radius:var(--r);
+  padding:16px;display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.sig-light{
+  width:22px;height:22px;border-radius:50%;
+  transition:all .6s ease;
+}
+.sig-red   {background:var(--red);  box-shadow:0 0 14px var(--red);}
+.sig-yellow{background:var(--yellow);box-shadow:0 0 14px var(--yellow);}
+.sig-green {background:var(--green); box-shadow:0 0 14px var(--green);}
+.sig-off   {background:var(--bg5);  box-shadow:none;}
+
+.sig-junction-card{
+  background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);
+  padding:14px;transition:var(--tr);
+}
+.sig-junction-card.optimized{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.04);}
+
+/* ── PROGRESS / BAR ── */
+.pbar{height:6px;background:var(--bg5);border-radius:3px;overflow:hidden;}
+.pbar-fill{height:100%;border-radius:3px;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+
+/* ── COMMAND CENTER ── */
+.cmd-grid{
+  display:grid;
+  grid-template-columns:280px 1fr 280px;
+  grid-template-rows:auto auto;
+  gap:14px;
+}
+.cmd-left{display:flex;flex-direction:column;gap:14px;}
+.cmd-center{display:flex;flex-direction:column;gap:14px;}
+.cmd-right{display:flex;flex-direction:column;gap:14px;}
+.cmd-alert{
+  display:flex;align-items:center;gap:10px;
+  background:var(--bg3);border-radius:var(--r);padding:10px 12px;
+  border:1px solid var(--b1);border-left:3px solid;
+  margin-bottom:8px;cursor:pointer;transition:var(--tr);
+}
+.cmd-alert:last-child{margin:0;}
+.cmd-alert:hover{background:var(--bg4);}
+.cmd-alert-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.cmd-alert-body{flex:1;}
+.cmd-alert-title{font-size:12px;font-weight:700;}
+.cmd-alert-sub{font-size:10px;color:var(--text3);}
+.cmd-alert-time{font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+
+.ai-rec-card{
+  background:var(--bg3);border-left:3px solid var(--blue);
+  border-radius:var(--r);padding:12px 14px;margin-bottom:8px;
+}
+.ai-rec-card:last-child{margin:0;}
+.ai-rec-title{font-size:12px;font-weight:700;color:var(--blue);margin-bottom:4px;}
+.ai-rec-text{font-size:11px;color:var(--text2);}
+.ai-rec-priority{font-size:10px;font-weight:700;color:var(--text3);margin-top:4px;}
+
+/* ── ARCHITECTURE ── */
+.arch-flow{display:flex;flex-direction:column;align-items:center;gap:0;padding:20px 0;}
+.arch-layer{
+  background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);
+  padding:12px 24px;width:320px;text-align:center;position:relative;
+  transition:var(--tr);cursor:default;
+}
+.arch-layer:hover{border-color:var(--b4);background:var(--bg4);}
+.arch-layer-title{font-size:12px;font-weight:700;}
+.arch-layer-sub{font-size:10px;color:var(--text3);margin-top:3px;}
+.arch-arrow{
+  width:2px;height:24px;margin:0 auto;
+  background:linear-gradient(to bottom,var(--b4),transparent);
+}
+.arch-arrow-head{
+  width:0;height:0;margin:0 auto;
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-top:8px solid var(--blue);
+  margin-top:-2px;
+}
+.arch-branch{
+  display:flex;justify-content:center;gap:10px;padding:0 0 0;
+}
+.arch-branch-node{
+  background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);
+  padding:10px 14px;text-align:center;flex:1;max-width:160px;
+  font-size:11px;font-weight:700;transition:var(--tr);cursor:default;
+}
+.arch-branch-node:hover{border-color:var(--b4);background:var(--bg4);}
+.arch-connector{
+  display:flex;justify-content:center;position:relative;
+}
+.arch-connector::before{
+  content:'';position:absolute;top:0;left:50%;width:calc(100% - 100px);height:2px;
+  background:linear-gradient(90deg,transparent,var(--b3),transparent);
+  transform:translateX(-50%);
+}
+
+/* ── DEMO OVERLAY ── */
+#demo-overlay{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(4,8,15,.96);backdrop-filter:blur(20px);
+  flex-direction:column;align-items:center;justify-content:center;gap:24px;
+}
+#demo-overlay.show{display:flex;}
+.demo-title{font-size:28px;font-weight:900;letter-spacing:-1px;text-align:center;}
+.demo-step-text{
+  font-size:15px;color:var(--text2);text-align:center;
+  max-width:500px;line-height:1.6;
+}
+.demo-progress{width:400px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;}
+.demo-progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--pink),var(--violet));transition:width .5s ease;}
+.demo-steps-row{
+  display:flex;gap:6px;justify-content:center;flex-wrap:wrap;
+  max-width:600px;
+}
+.demo-step-dot{
+  width:28px;height:28px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:800;transition:var(--tr);
+  border:2px solid var(--b2);color:var(--text3);
+}
+.demo-step-dot.done{border-color:var(--green);background:rgba(0,230,118,.15);color:var(--green);}
+.demo-step-dot.current{border-color:var(--pink);background:rgba(255,77,166,.15);color:var(--pink);animation:demopulse 1s infinite;}
+.demo-close{
+  padding:8px 24px;border-radius:8px;border:1px solid var(--b3);
+  background:transparent;color:var(--text2);cursor:pointer;
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+  transition:var(--tr);display:none;
+}
+.demo-close:hover{background:var(--bg3);color:var(--text1);}
+.demo-final{
+  display:none;max-width:720px;width:90%;margin-top:8px;
+  background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rl);padding:20px;
+}
+.demo-final.show{display:block;}
+.demo-final-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
+.demo-final-item{background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--b1);}
+.demo-final-v{font-size:20px;font-weight:800;font-family:'JetBrains Mono',monospace;}
+.demo-final-l{font-size:9px;color:var(--text3);margin-top:4px;text-transform:uppercase;}
+
+/* ── KPI PROVENANCE ── */
+.kpi-meta{font-size:9px;color:var(--text4);margin-top:8px;line-height:1.55;border-top:1px solid var(--b1);padding-top:6px;}
+.kpi-meta-row{display:flex;justify-content:space-between;gap:6px;}
+.kcard-pro{position:relative;}
+.kcard-pro .kpi-meta{margin-top:10px;}
+
+/* ── AI COPILOT ── */
+#copilot-fab{
+  position:fixed;bottom:24px;right:24px;z-index:9000;
+  width:52px;height:52px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(135deg,rgba(59,158,255,.25),rgba(176,111,255,.25));
+  border:1px solid rgba(176,111,255,.45);color:var(--violet);
+  font-size:22px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);transition:var(--tr);
+}
+#copilot-fab:hover{transform:scale(1.05);box-shadow:var(--gpink);}
+#copilot-panel{
+  display:none;position:fixed;bottom:88px;right:24px;z-index:8999;
+  width:380px;max-height:520px;background:var(--bg2);
+  border:1px solid var(--b3);border-radius:var(--rl);
+  box-shadow:0 16px 48px rgba(0,0,0,.55);flex-direction:column;overflow:hidden;
+}
+#copilot-panel.open{display:flex;}
+.copilot-hdr{
+  padding:14px 16px;border-bottom:1px solid var(--b1);
+  display:flex;align-items:center;gap:10px;
+  background:linear-gradient(135deg,rgba(59,158,255,.08),rgba(176,111,255,.08));
+}
+.copilot-hdr-title{font-size:13px;font-weight:800;}
+.copilot-hdr-sub{font-size:10px;color:var(--text3);}
+.copilot-msgs{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;max-height:340px;}
+.copilot-msg{max-width:92%;padding:10px 12px;border-radius:10px;font-size:12px;line-height:1.55;}
+.copilot-msg.bot{background:var(--bg3);border:1px solid var(--b1);align-self:flex-start;}
+.copilot-msg.user{background:rgba(59,158,255,.12);border:1px solid rgba(59,158,255,.25);align-self:flex-end;}
+.copilot-insight{font-size:10px;color:var(--green);margin-top:6px;font-weight:600;}
+.copilot-input-row{display:flex;gap:8px;padding:12px;border-top:1px solid var(--b1);}
+#copilot-input{
+  flex:1;background:var(--bg0);border:1px solid var(--b2);border-radius:8px;
+  padding:8px 12px;color:var(--text1);font-family:'Inter',sans-serif;font-size:12px;
+}
+#copilot-input:focus{outline:none;border-color:var(--blue);}
+.copilot-chips{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px 8px;}
+.copilot-chip{
+  font-size:9px;padding:4px 8px;border-radius:12px;cursor:pointer;
+  background:var(--bg4);border:1px solid var(--b2);color:var(--text2);transition:var(--tr);
+}
+.copilot-chip:hover{border-color:var(--blue);color:var(--blue);}
+
+/* ── COMPARISON TABLE ── */
+.cmp-table{width:100%;border-collapse:collapse;font-size:12px;}
+.cmp-table th,.cmp-table td{padding:10px 12px;border-bottom:1px solid var(--b1);text-align:left;}
+.cmp-table th{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);background:var(--bg3);}
+.cmp-yes{color:var(--green);font-weight:700;}
+.cmp-no{color:var(--red);font-weight:700;}
+.cmp-lim{color:var(--yellow);font-weight:700;}
+.cmp-win{background:rgba(0,230,118,.06);}
+
+/* ── ML PIPELINE ── */
+.ml-flow{display:flex;flex-direction:column;align-items:center;gap:0;padding:10px 0;}
+.ml-node{
+  background:var(--bg3);border:1px solid var(--b2);border-radius:var(--r);
+  padding:10px 20px;width:280px;text-align:center;
+}
+.ml-node-title{font-size:11px;font-weight:700;color:var(--cyan);}
+.ml-node-sub{font-size:9px;color:var(--text3);margin-top:2px;}
+.ml-arrow{width:2px;height:16px;background:var(--b3);margin:0 auto;}
+.feature-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.feature-pill{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:10px;text-align:center;font-size:11px;font-weight:600;}
+.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.metric-box{background:var(--bg3);border:1px solid var(--b1);border-radius:var(--r);padding:14px;text-align:center;}
+.metric-box-v{font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--cyan);}
+.metric-box-l{font-size:9px;color:var(--text3);margin-top:4px;text-transform:uppercase;}
+
+/* ── EXECUTIVE ── */
+.exec-section{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rl);padding:18px;margin-bottom:14px;}
+.exec-section h3{font-size:14px;font-weight:800;margin-bottom:10px;}
+.exec-section p,.exec-section li{font-size:12px;color:var(--text2);line-height:1.7;}
+.exec-results{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.exec-result{background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--b1);text-align:center;}
+#toast-ct{position:fixed;top:70px;right:20px;z-index:9998;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  padding:11px 16px;border-radius:10px;font-size:12px;font-weight:600;
+  backdrop-filter:blur(16px);border:1px solid;max-width:320px;
+  animation:sli .3s ease,fad .4s ease 3.6s forwards;
+}
+.toast-s{background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.35);color:var(--green);}
+.toast-i{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.35);color:var(--blue);}
+.toast-w{background:rgba(255,215,64,.12);border-color:rgba(255,215,64,.35);color:var(--yellow);}
+.toast-e{background:rgba(255,68,68,.12);border-color:rgba(255,68,68,.35);color:var(--red);}
+@keyframes sli{from{transform:translateX(80px);opacity:0;}to{transform:none;opacity:1;}}
+@keyframes fad{to{opacity:0;transform:translateX(20px);}}
+
+/* ── MISC ── */
+.divider{height:1px;background:var(--b1);margin:4px 0;}
+.section-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;
+}
+.btn{
+  padding:8px 18px;border-radius:8px;font-size:12px;font-weight:700;
+  cursor:pointer;border:1px solid;transition:var(--tr);font-family:'Inter',sans-serif;
+  display:inline-flex;align-items:center;gap:7px;
+}
+.btn-blue{background:rgba(59,158,255,.12);border-color:rgba(59,158,255,.3);color:var(--blue);}
+.btn-blue:hover{background:rgba(59,158,255,.22);border-color:var(--blue);}
+.btn-green{background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.3);color:var(--green);}
+.btn-green:hover{background:rgba(0,230,118,.22);}
+.btn-red{background:rgba(255,68,68,.12);border-color:rgba(255,68,68,.3);color:var(--red);}
+.btn-red:hover{background:rgba(255,68,68,.22);}
+.btn-orange{background:rgba(255,140,66,.12);border-color:rgba(255,140,66,.3);color:var(--orange);}
+.btn-orange:hover{background:rgba(255,140,66,.22);}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.2);border-top-color:currentColor;border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── SCROLLBAR CUSTOM ── */
+#content::-webkit-scrollbar{width:4px;}
+#sidebar::-webkit-scrollbar{width:3px;}
+
+/* ── ANIMATED ROUTE LINE ── */
+@keyframes dash-flow{to{stroke-dashoffset:-24;}}
+.flow-line{stroke-dasharray:12 8;animation:dash-flow 1.2s linear infinite;}
+
+/* ── ADMIN CONTROL CENTER ── */
+#admin-login-overlay{display:none;position:fixed;inset:0;z-index:10000;background:rgba(4,8,15,.97);backdrop-filter:blur(24px);align-items:center;justify-content:center;}
+#admin-login-overlay.show{display:flex;}
+.admin-login-box{width:380px;background:var(--bg2);border:1px solid var(--b3);border-radius:var(--rl);padding:28px;box-shadow:0 24px 64px rgba(0,0,0,.6);}
+.admin-login-box h2{font-size:18px;font-weight:800;margin-bottom:4px;}
+.admin-login-box p{font-size:11px;color:var(--text3);margin-bottom:20px;}
+.admin-field{margin-bottom:12px;}
+.admin-field label{display:block;font-size:10px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;}
+.admin-field input{width:100%;padding:10px 12px;background:var(--bg0);border:1px solid var(--b2);border-radius:8px;color:var(--text1);font-family:'Inter',sans-serif;font-size:13px;}
+.admin-field input:focus{outline:none;border-color:var(--blue);}
+#admin-profile{display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid var(--b1);background:var(--bg3);transition:var(--tr);position:relative;}
+#admin-profile:hover{border-color:var(--b3);}
+#admin-profile-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:220px;background:var(--bg2);border:1px solid var(--b3);border-radius:var(--r);box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:3000;padding:8px 0;}
+#admin-profile-menu.open{display:block;}
+.apm-row{padding:8px 14px;font-size:11px;border-bottom:1px solid var(--b1);}
+.apm-action{padding:8px 14px;font-size:12px;cursor:pointer;color:var(--blue);font-weight:600;}
+.apm-action:hover{background:var(--bg3);}
+#admin-nav-section{display:none;}
+#admin-nav-section.visible{display:block;}
+.admin-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+.admin-ctrl-group{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rl);padding:14px;}
+.admin-ctrl-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:10px;}
+.admin-btn-row{display:flex;flex-wrap:wrap;gap:6px;}
+.admin-btn{padding:7px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid;font-family:'Inter',sans-serif;transition:var(--tr);}
+.admin-btn-red{background:rgba(255,68,68,.1);border-color:rgba(255,68,68,.3);color:var(--red);}
+.admin-btn-blue{background:rgba(59,158,255,.1);border-color:rgba(59,158,255,.3);color:var(--blue);}
+.admin-btn-green{background:rgba(0,230,118,.1);border-color:rgba(0,230,118,.3);color:var(--green);}
+.admin-btn-orange{background:rgba(255,140,66,.1);border-color:rgba(255,140,66,.3);color:var(--orange);}
+.admin-btn-yellow{background:rgba(255,215,64,.1);border-color:rgba(255,215,64,.3);color:var(--yellow);}
+.admin-btn-violet{background:rgba(176,111,255,.1);border-color:rgba(176,111,255,.3);color:var(--violet);}
+.admin-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.admin-form .full{grid-column:1/-1;}
+.admin-form select,.admin-form input{padding:8px 10px;background:var(--bg0);border:1px solid var(--b2);border-radius:6px;color:var(--text1);font-size:11px;width:100%;}
+.admin-timeline{max-height:220px;overflow-y:auto;}
+.admin-tl-item{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--b1);font-size:11px;animation:tlIn .3s ease;}
+@keyframes tlIn{from{opacity:0;transform:translateX(-8px);}to{opacity:1;transform:none;}}
+.admin-tl-time{font-family:'JetBrains Mono',monospace;color:var(--cyan);width:42px;flex-shrink:0;}
+.admin-tl-dot{width:8px;height:8px;border-radius:50%;background:var(--green);margin-top:4px;flex-shrink:0;}
+.admin-log{background:var(--bg0);border:1px solid var(--b1);border-radius:var(--r);padding:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);max-height:100px;overflow-y:auto;}
+.admin-status-bar{display:flex;gap:16px;flex-wrap:wrap;padding:12px 16px;background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rl);margin-bottom:14px;}
+#admin-confirm-overlay{display:none;position:fixed;inset:0;z-index:10001;background:rgba(4,8,15,.85);align-items:center;justify-content:center;}
+#admin-confirm-overlay.show{display:flex;}
+.admin-confirm-box{background:var(--bg2);border:1px solid rgba(255,68,68,.4);border-radius:var(--rl);padding:24px;max-width:400px;text-align:center;}
+#admin-report-modal{display:none;position:fixed;inset:0;z-index:9997;background:rgba(4,8,15,.9);align-items:center;justify-content:center;padding:20px;}
+#admin-report-modal.show{display:flex;}
+.admin-report-box{background:var(--bg2);border:1px solid var(--b2);border-radius:var(--rl);max-width:700px;width:100%;max-height:85vh;overflow-y:auto;padding:24px;}
+
+/* ── LANDING PAGE ── */
+#landing-overlay{
+  position:fixed;inset:0;z-index:10002;background:var(--bg0);
+  overflow-y:auto;display:flex;flex-direction:column;
+}
+#landing-overlay.hidden{display:none;}
+.landing-inner{max-width:1100px;margin:0 auto;padding:40px 24px 100px;width:100%;}
+.landing-hero{text-align:center;margin-bottom:48px;}
+.landing-hero h1{font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:8px;
+  background:linear-gradient(135deg,var(--text1),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.landing-hero p{font-size:14px;color:var(--text2);max-width:600px;margin:0 auto;}
+.landing-section{margin-bottom:40px;}
+.landing-section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.landing-section-hdr h2{font-size:18px;font-weight:800;}
+.landing-section-hdr .line{flex:1;height:1px;background:var(--b2);}
+.landing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.landing-stat{background:var(--bg2);border:1px solid var(--b1);border-radius:var(--rl);padding:20px;text-align:center;transition:var(--tr);}
+.landing-stat:hover{border-color:var(--b3);transform:translateY(-2px);}
+.landing-stat-v{font-size:28px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-bottom:6px;}
+.landing-stat-l{font-size:11px;color:var(--text3);}
+.landing-solution-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.landing-sol{background:linear-gradient(135deg,rgba(59,158,255,.08),rgba(176,111,255,.06));border:1px solid var(--b2);border-radius:var(--rl);padding:22px;}
+.landing-sol-icon{font-size:32px;margin-bottom:10px;}
+.landing-sol h3{font-size:14px;font-weight:800;margin-bottom:6px;}
+.landing-sol p{font-size:12px;color:var(--text2);line-height:1.6;}
+.landing-cta-bar{
+  position:fixed;bottom:0;left:0;right:0;z-index:10003;
+  background:rgba(4,8,15,.95);backdrop-filter:blur(20px);border-top:1px solid var(--b2);
+  padding:16px 24px;display:flex;align-items:center;justify-content:center;gap:16px;
+}
+.landing-enter{
+  padding:14px 36px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;
+  background:linear-gradient(135deg,var(--blue),var(--violet));border:none;color:#fff;
+  font-family:'Inter',sans-serif;box-shadow:0 8px 32px rgba(59,158,255,.35);transition:var(--tr);
+}
+.landing-enter:hover{transform:scale(1.03);box-shadow:0 12px 40px rgba(59,158,255,.5);}
+
+/* ── JUDGE MODE TOUR ── */
+#judge-tour-overlay{display:none;position:fixed;inset:0;z-index:10004;}
+#judge-tour-overlay.active{display:block;}
+.judge-spotlight{
+  position:fixed;border:2px solid var(--pink);border-radius:12px;
+  box-shadow:0 0 0 9999px rgba(4,8,15,.78),0 0 24px rgba(255,77,166,.5);
+  pointer-events:none;transition:all .4s cubic-bezier(.4,0,.2,1);z-index:10005;
+}
+.judge-tooltip{
+  position:fixed;z-index:10006;width:380px;background:var(--bg2);
+  border:1px solid rgba(255,77,166,.35);border-radius:var(--rl);
+  padding:20px;box-shadow:0 16px 48px rgba(0,0,0,.6);
+}
+.judge-tooltip h3{font-size:15px;font-weight:800;margin-bottom:8px;color:var(--pink);}
+.judge-tooltip p{font-size:12px;color:var(--text2);line-height:1.65;margin-bottom:12px;}
+.judge-tooltip .biz{font-size:11px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:10px;margin-bottom:12px;color:var(--green);}
+.judge-tooltip-nav{display:flex;gap:8px;justify-content:space-between;align-items:center;}
+.judge-step-ind{font-size:10px;color:var(--text3);}
+
+/* ── DATA SOURCE CARD ── */
+.ds-card{
+  background:rgba(59,158,255,.04);border:1px solid rgba(59,158,255,.12);
+  border-radius:var(--r);padding:10px 12px;margin-top:12px;font-size:10px;
+}
+.ds-title{font-weight:800;color:var(--cyan);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-size:9px;}
+.ds-items{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;color:var(--text3);}
+.ds-items span{color:var(--text2);}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1400px){.krow-6{grid-template-columns:repeat(3,1fr);}.cmd-grid{grid-template-columns:240px 1fr 240px;}}
+@media(max-width:1100px){.krow-5{grid-template-columns:repeat(3,1fr);}.krow-4{grid-template-columns:repeat(2,1fr);}.landing-grid{grid-template-columns:repeat(2,1fr);}.landing-solution-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- ═══ LANDING PAGE ═══ -->
+<div id="landing-overlay">
+  <div class="landing-inner">
+    <div class="landing-hero">
+      <div style="font-size:12px;color:var(--orange);font-weight:700;letter-spacing:2px;margin-bottom:12px;">FLIPKART GRIDLOCK 2.0 · HACKATHON 2026</div>
+      <h1>Bengaluru Traffic Intelligence Platform</h1>
+      <p>AI-powered urban traffic & logistics system for governments and enterprise fleet operators — built for Bengaluru, designed for Flipkart.</p>
+    </div>
+
+    <div class="landing-section">
+      <div class="landing-section-hdr"><h2 style="color:var(--red);">⚠️ The Problem — Bengaluru Gridlock</h2><div class="line"></div></div>
+      <div class="landing-grid">
+        <div class="landing-stat"><div class="landing-stat-v c-red">42 min</div><div class="landing-stat-l">Average Peak Delay</div></div>
+        <div class="landing-stat"><div class="landing-stat-v c-orange">₹2.4L</div><div class="landing-stat-l">Daily Fuel Waste</div></div>
+        <div class="landing-stat"><div class="landing-stat-v c-yellow">9+</div><div class="landing-stat-l">Delivery Delays / Hour</div></div>
+        <div class="landing-stat"><div class="landing-stat-v c-red">18 min</div><div class="landing-stat-l">Emergency Response ETA</div></div>
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin-top:12px;text-align:center;">18 critical corridors · CI &gt; 0.80 during peak · No predictive intelligence in legacy systems</p>
+    </div>
+
+    <div class="landing-section">
+      <div class="landing-section-hdr"><h2 style="color:var(--blue);">✅ Our Solution — AI Intelligence Layer</h2><div class="line"></div></div>
+      <div class="landing-solution-grid">
+        <div class="landing-sol"><div class="landing-sol-icon">🔮</div><h3>Predictive Engine</h3><p>15/30/60-min congestion forecasting across 18 geohash zones with 94.2% accuracy using LSTM ensemble models.</p></div>
+        <div class="landing-sol"><div class="landing-sol-icon">⚡</div><h3>Real-Time Optimization</h3><p>Smart signals, dynamic rerouting, incident detection, and emergency green corridors — all coordinated by AI.</p></div>
+        <div class="landing-sol"><div class="landing-sol-icon">📦</div><h3>Logistics Intelligence</h3><p>Flipkart fleet AI — hub-to-customer routing, SLA protection, 42→29 min delivery optimization, ₹18.6L revenue protected daily.</p></div>
+      </div>
+    </div>
+
+    <div class="landing-section">
+      <div class="landing-section-hdr"><h2 style="color:var(--green);">📊 Measurable Impact</h2><div class="line"></div></div>
+      <div class="landing-grid">
+        <div class="landing-stat"><div class="landing-stat-v c-green">14.8K</div><div class="landing-stat-l">Travel Minutes Saved / Day</div></div>
+        <div class="landing-stat"><div class="landing-stat-v c-cyan">₹18.6L</div><div class="landing-stat-l">Revenue Protected / Day</div></div>
+        <div class="landing-stat"><div class="landing-stat-v c-green">4.8 t</div><div class="landing-stat-l">CO₂ Reduced / Day</div></div>
+        <div class="landing-stat"><div class="landing-stat-v c-yellow">+31%</div><div class="landing-stat-l">Fleet Efficiency Gain</div></div>
+      </div>
+    </div>
+
+    <div class="ds-card" style="max-width:500px;margin:0 auto;">
+      <div class="ds-title">Platform Data Sources</div>
+      <div class="ds-items">
+        <span>✓ Historical Traffic (71K records)</span><span>✓ Simulated Live Feed</span>
+        <span>✓ Event Generator</span><span>✓ Prediction Engine</span>
+      </div>
+    </div>
+  </div>
+  <div class="landing-cta-bar">
+    <button class="landing-enter" onclick="enterPlatform()">Enter Platform →</button>
+    <button class="btn" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);" onclick="enterPlatform();setTimeout(startJudgeTour,600);">🎯 Judge Mode Tour</button>
+  </div>
+</div>
+
+<!-- ═══ JUDGE TOUR ═══ -->
+<div id="judge-tour-overlay">
+  <div class="judge-spotlight" id="judge-spotlight" style="display:none;"></div>
+  <div class="judge-tooltip" id="judge-tooltip" style="display:none;">
+    <h3 id="jt-title">Welcome</h3>
+    <p id="jt-text"></p>
+    <div class="biz" id="jt-biz"></div>
+    <div class="judge-tooltip-nav">
+      <span class="judge-step-ind" id="jt-step">1 / 8</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" style="padding:6px 12px;font-size:11px;background:var(--bg3);border-color:var(--b2);color:var(--text2);" onclick="endJudgeTour()">Exit</button>
+        <button class="btn btn-blue" style="padding:6px 12px;font-size:11px;" id="jt-prev" onclick="judgeTourPrev()">← Back</button>
+        <button class="btn btn-blue" style="padding:6px 12px;font-size:11px;" id="jt-next" onclick="judgeTourNext()">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ HEADER ═══ -->
+<div id="hdr">
+  <div class="hbrand">
+    <div class="hlogo">F</div>
+    <div><div class="htitle">Flipkart Gridlock 2.0</div><div class="hsub">Bengaluru City Intelligence Platform — AI-Powered Traffic & Logistics</div></div>
+  </div>
+  <div class="hstatus">
+    <div class="badge badge-live"><span class="ldot"></span>LIVE AI</div>
+    <div class="badge badge-ai" id="active-modules-badge">18 Modules Active</div>
+    <div class="badge badge-warn" id="alerts-badge"><span class="ldot"></span><span id="alert-count">7</span> Alerts</div>
+    <div class="badge badge-ai" id="ws-badge" title="WebSocket live feed"><span class="ldot" id="ws-dot"></span><span id="ws-status">WS Sim</span></div>
+    <button id="judge-mode-btn" onclick="startJudgeTour()" title="Guided judge walkthrough">🎯 Judge Mode</button>
+    <button id="demo-btn" onclick="startDemo()">⚡ RUN FULL DEMO</button>
+    <div id="admin-profile" onclick="toggleAdminProfile(event)">
+      <span>👤</span><span id="admin-profile-label">Login</span>
+      <div id="admin-profile-menu">
+        <div class="apm-row"><strong id="apm-name">—</strong></div>
+        <div class="apm-row">Role: <span id="apm-role">—</span></div>
+        <div class="apm-row">Last Login: <span id="apm-login">—</span></div>
+        <div class="apm-row">Status: <span id="apm-status" class="c-green">—</span></div>
+        <div class="apm-action" onclick="show('admin');event.stopPropagation();">⚙️ Admin Control Center</div>
+        <div class="apm-action" onclick="showLanding();event.stopPropagation();">📋 Problem Statement</div>
+        <div class="apm-action" onclick="adminLogout();event.stopPropagation();">🚪 Logout</div>
+      </div>
+    </div>
+    <div id="clock">00:00:00 IST</div>
+  </div>
+</div>
+
+<!-- ═══ DEMO OVERLAY ═══ -->
+<div id="demo-overlay">
+  <div class="demo-title">🚀 AI System Demo<br/><span style="color:var(--pink)">Flipkart Gridlock 2.0</span></div>
+  <div class="demo-steps-row" id="demo-dots"></div>
+  <div class="demo-step-text" id="demo-step-text">Initializing full system demonstration...</div>
+  <div class="demo-progress"><div class="demo-progress-fill" id="demo-pfill" style="width:0%"></div></div>
+  <div class="demo-final" id="demo-final">
+    <div style="font-size:16px;font-weight:800;text-align:center;color:var(--green);">✅ Live Product Demonstration — Impact Report</div>
+    <div class="demo-final-grid" id="demo-final-grid"></div>
+  </div>
+  <button class="demo-close" id="demo-close-btn" onclick="closeDemoOverlay()">✕ Close</button>
+</div>
+
+<!-- ═══ ADMIN LOGIN ═══ -->
+<div id="admin-login-overlay">
+  <div class="admin-login-box">
+    <h2>🔐 Admin Access</h2>
+    <p>Flipkart Gridlock 2.0 — Operations Control</p>
+    <div class="admin-field"><label>Username</label><input id="admin-user" type="text" placeholder="admin" autocomplete="username"/></div>
+    <div class="admin-field"><label>Password</label><input id="admin-pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')adminLoginSubmit()"/></div>
+    <button class="btn btn-blue" style="width:100%;justify-content:center;margin-top:8px;" onclick="adminLoginSubmit()">Secure Login →</button>
+    <button class="btn" style="width:100%;justify-content:center;margin-top:8px;background:var(--bg3);border-color:var(--b2);color:var(--text2);" onclick="closeAdminLogin()">Cancel</button>
+  </div>
+</div>
+<div id="admin-confirm-overlay">
+  <div class="admin-confirm-box">
+    <div style="font-size:15px;font-weight:800;margin-bottom:8px;" id="confirm-title">Confirm Action</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:16px;" id="confirm-msg">Are you sure?</div>
+    <button class="btn btn-red" onclick="confirmAdminAction(true)">Confirm</button>
+    <button class="btn" style="margin-left:8px;background:var(--bg3);border-color:var(--b2);color:var(--text2);" onclick="confirmAdminAction(false)">Cancel</button>
+  </div>
+</div>
+<div id="admin-report-modal">
+  <div class="admin-report-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="font-size:16px;font-weight:800;">📋 Executive Report</h2>
+      <button class="btn btn-blue" onclick="downloadExecutiveReport()">⬇ Download</button>
+      <button class="btn" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);" onclick="document.getElementById('admin-report-modal').classList.remove('show')">✕</button>
+    </div>
+    <div id="admin-report-body" style="font-size:12px;color:var(--text2);line-height:1.8;"></div>
+  </div>
+</div>
+
+<!-- ═══ TOAST ═══ -->
+<div id="toast-ct"></div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+
+<!-- ─── SIDEBAR ─── -->
+<div id="sidebar">
+  <div class="sg">Main</div>
+  <div class="ni active" id="nav-command" onclick="show('command')"><span class="ic">🏛️</span>Command Center<span class="nb nb-red" id="cmd-badge">7</span></div>
+  <div class="ni" id="nav-map" onclick="show('map')"><span class="ic">🗺️</span>Live Map<span class="nb nb-yellow">18</span></div>
+
+  <div class="sg">AI Modules</div>
+  <div class="ni" id="nav-predict" onclick="show('predict')"><span class="ic">🔮</span>Prediction Engine<span class="nb nb-blue">NEW</span></div>
+  <div class="ni" id="nav-incidents" onclick="show('incidents')"><span class="ic">🚨</span>Incident Detection<span class="nb nb-red" id="inc-badge">8</span></div>
+  <div class="ni" id="nav-twin" onclick="show('twin')"><span class="ic">🌐</span>Digital Twin<span class="nb nb-yellow">SIM</span></div>
+  <div class="ni" id="nav-emergency" onclick="show('emergency')"><span class="ic">🚑</span>Emergency Response<span class="nb nb-red">LIVE</span></div>
+
+  <div class="sg">Logistics</div>
+  <div class="ni" id="nav-flipkart" onclick="show('flipkart')"><span class="ic">📦</span>Flipkart Fleet AI<span class="nb nb-green">142</span></div>
+
+  <div class="sg">Intelligence</div>
+  <div class="ni" id="nav-signals" onclick="show('signals')"><span class="ic">🚦</span>Smart Signals<span class="nb nb-green">6</span></div>
+  <div class="ni" id="nav-xai" onclick="show('xai')"><span class="ic">🧠</span>Explainable AI</div>
+  <div class="ni" id="nav-analytics" onclick="show('analytics')"><span class="ic">📊</span>Impact Analytics</div>
+
+  <div class="sg">Executive</div>
+  <div class="ni" id="nav-mlcenter" onclick="show('mlcenter')"><span class="ic">🤖</span>ML Center<span class="nb nb-blue">AI</span></div>
+  <div class="ni" id="nav-bizimpact" onclick="show('bizimpact')"><span class="ic">💼</span>Business Impact<span class="nb nb-green">FK</span></div>
+  <div class="ni" id="nav-executive" onclick="show('executive')"><span class="ic">📋</span>Why Gridlock 2.0</div>
+  <div class="ni" id="nav-roi" onclick="show('roi')"><span class="ic">💰</span>ROI Center<span class="nb nb-yellow">NEW</span></div>
+  <div class="ni" id="nav-advantage" onclick="show('advantage')"><span class="ic">🏆</span>Why We Win</div>
+
+  <div class="sg">System</div>
+  <div class="ni" id="nav-arch" onclick="show('arch')"><span class="ic">🏗️</span>Architecture</div>
+
+  <div id="admin-nav-section">
+    <div class="sg" style="color:var(--violet);">Admin Operations</div>
+    <div class="ni" id="nav-admin" onclick="show('admin')"><span class="ic">⚙️</span>Control Center<span class="nb nb-pink">CMD</span></div>
+  </div>
+
+  <!-- System stats -->
+  <div style="margin-top:auto;padding-top:12px;border-top:1px solid var(--b1);">
+    <div style="background:var(--bg3);border-radius:var(--r);padding:12px;border:1px solid var(--b1);margin-top:10px;">
+      <div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">System Health</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="color:var(--text3)">AI Accuracy</span><span style="color:var(--green);font-weight:700">94.3%</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="color:var(--text3)">Zones Live</span><span style="color:var(--blue);font-weight:700">18/18</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:var(--text3)">Latency</span><span style="color:var(--cyan);font-weight:700">42ms</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MAIN ─── -->
+<div id="main">
+<div id="tabbar">
+  <button class="tb active" id="tab-command" onclick="show('command')">🏛️ Command</button>
+  <button class="tb" id="tab-map" onclick="show('map')">🗺️ Live Map</button>
+  <button class="tb" id="tab-predict" onclick="show('predict')">🔮 Predictions</button>
+  <button class="tb" id="tab-incidents" onclick="show('incidents')">🚨 Incidents</button>
+  <button class="tb" id="tab-twin" onclick="show('twin')">🌐 Digital Twin</button>
+  <button class="tb" id="tab-emergency" onclick="show('emergency')">🚑 Emergency</button>
+  <button class="tb" id="tab-flipkart" onclick="show('flipkart')">📦 Fleet AI</button>
+  <button class="tb" id="tab-signals" onclick="show('signals')">🚦 Signals</button>
+  <button class="tb" id="tab-xai" onclick="show('xai')">🧠 XAI</button>
+  <button class="tb" id="tab-analytics" onclick="show('analytics')">📊 Analytics</button>
+  <button class="tb" id="tab-arch" onclick="show('arch')">🏗️ Architecture</button>
+  <button class="tb" id="tab-mlcenter" onclick="show('mlcenter')">🤖 ML Center</button>
+  <button class="tb" id="tab-bizimpact" onclick="show('bizimpact')">💼 Business</button>
+  <button class="tb" id="tab-executive" onclick="show('executive')">📋 Why 2.0</button>
+  <button class="tb" id="tab-roi" onclick="show('roi')">💰 ROI</button>
+  <button class="tb" id="tab-advantage" onclick="show('advantage')">🏆 Wins</button>
+  <button class="tb" id="tab-admin" onclick="show('admin')" style="display:none;">⚙️ Admin</button>
+  <div class="spacer"></div>
+  <span style="font-size:10px;color:var(--text3);">Refresh in</span>
+  <span id="ref-ct">30s</span>
+</div>
+
+<div id="content">
+
+<!-- ════════════════════════════════════
+     PANEL: COMMAND CENTER
+════════════════════════════════════ -->
+<div class="panel active" id="panel-command">
+  <div id="ds-command-top"></div>
+  <div class="krow krow-5">
+    <div class="kcard kcard-pro"><div class="kl">Active Alerts</div><div class="kv c-red" id="cmd-kpi-alerts">7</div><div class="kd c-red">⬆ 2 new in last 5 min</div><div class="ki">🚨</div><div id="meta-cmd-alerts"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Critical Zones</div><div class="kv c-orange" id="cmd-kpi-crit">4</div><div class="kd">CI &gt; 0.80 threshold</div><div class="ki">🔴</div><div id="meta-cmd-crit"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">AI Interventions</div><div class="kv c-cyan" id="cmd-kpi-int">12</div><div class="kd">Last 30 minutes</div><div class="ki">⚡</div><div id="meta-cmd-int"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Delivery Fleet</div><div class="kv c-yellow" id="cmd-kpi-fleet">142</div><div class="kd">Active vehicles tracked</div><div class="ki">📦</div><div id="meta-cmd-fleet"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">ETT Saved Today</div><div class="kv c-green">14.8K</div><div class="kd">Minutes across all users</div><div class="ki">⏱️</div><div id="meta-cmd-ett"></div></div>
+  </div>
+
+  <div class="cmd-grid">
+    <!-- LEFT -->
+    <div class="cmd-left">
+      <div class="card">
+        <div class="ch"><span class="icon">🚨</span> Active Alerts<span class="hdesc">Real-time</span></div>
+        <div class="cb" id="cmd-alerts-list"></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🔮</span> Predicted Gridlocks<span class="hdesc">Next 60 min</span></div>
+        <div class="cb" id="cmd-predicted-list"></div>
+      </div>
+    </div>
+
+    <!-- CENTER MAP -->
+    <div class="cmd-center">
+      <div class="card" style="flex:1;">
+        <div class="ch">
+          <span class="icon">🌐</span> Bengaluru Live — Command View
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <span class="tag" style="background:rgba(255,68,68,.12);color:var(--red);border:1px solid rgba(255,68,68,.25);">🔴 Gridlock</span>
+            <span class="tag" style="background:rgba(255,215,64,.12);color:var(--yellow);border:1px solid rgba(255,215,64,.25);">🟡 Moderate</span>
+            <span class="tag" style="background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.25);">🟢 Smooth</span>
+          </div>
+        </div>
+        <div id="map" style="height:340px;"></div>
+        <div class="cb" style="padding:10px 16px;border-top:1px solid var(--b1);">
+          <div class="section-title" style="margin-bottom:6px;">🔮 Live Prediction Curves — Top 3 Critical Zones</div>
+          <canvas id="chart-cmd-predict" height="90"></canvas>
+        </div>
+      </div>
+      <div class="krow krow-3">
+        <div class="kcard" style="background:rgba(255,68,68,.06);border-color:rgba(255,68,68,.2);"><div class="kl">Emergency Vehicles</div><div class="kv c-red" id="emg-active-count">2</div><div class="kd">En route now</div></div>
+        <div class="kcard" style="background:rgba(255,215,64,.06);border-color:rgba(255,215,64,.2);"><div class="kl">Delivery At Risk</div><div class="kv c-yellow" id="at-risk-count">9</div><div class="kd">Predicted delay &gt;15min</div></div>
+        <div class="kcard" style="background:rgba(0,230,118,.06);border-color:rgba(0,230,118,.2);"><div class="kl">Optimized Routes</div><div class="kv c-green">34</div><div class="kd">AI-rerouted this hour</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="cmd-right">
+      <div class="card">
+        <div class="ch"><span class="icon">🧠</span> AI Recommendations</div>
+        <div class="cb" id="cmd-ai-recs"></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">📦</span> Fleet Status</div>
+        <div class="cb">
+          <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+            <div style="text-align:center;"><div class="kv c-green" style="font-size:20px">133</div><div class="kd">On Time</div></div>
+            <div style="text-align:center;"><div class="kv c-yellow" style="font-size:20px">9</div><div class="kd">At Risk</div></div>
+            <div style="text-align:center;"><div class="kv c-red" style="font-size:20px">0</div><div class="kd">Failed</div></div>
+          </div>
+          <div class="pbar"><div class="pbar-fill" style="width:94%;background:linear-gradient(90deg,var(--green),var(--cyan));"></div></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:4px;">94% Fleet efficiency</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: LIVE MAP
+════════════════════════════════════ -->
+<div class="panel" id="panel-map">
+  <div class="krow krow-4">
+    <div class="kcard"><div class="kl">Congested Zones</div><div class="kv c-red" id="kpi-cong">7</div><div class="kd">CI &gt; 0.75</div><div class="ki">🚨</div></div>
+    <div class="kcard"><div class="kl">Smooth Flow</div><div class="kv c-green" id="kpi-smooth">8</div><div class="kd">CI &lt; 0.50</div><div class="ki">✅</div></div>
+    <div class="kcard"><div class="kl">Avg Travel Time</div><div class="kv c-yellow" id="kpi-travel">42 min</div><div class="kd">Peak hour</div><div class="ki">⏱️</div></div>
+    <div class="kcard"><div class="kl">Rerouted Today</div><div class="kv c-cyan" id="kpi-rerouted">1,847</div><div class="kd">AI interventions</div><div class="ki">🔄</div></div>
+  </div>
+  <div class="g13">
+    <div class="card">
+      <div class="ch">
+        <span class="icon">🗺️</span> Bengaluru Traffic — Live
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button class="btn btn-blue" onclick="toggleReroute()" id="btn-reroute">🔀 Rerouting</button>
+          <button class="btn btn-green" onclick="toggleSignals()" id="btn-sigs">🚦 Signals</button>
+          <button class="btn btn-orange" onclick="toggleHeatmap()" id="btn-heatmap">🔥 Heatmap</button>
+        </div>
+      </div>
+      <div id="map2" style="height:420px;"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card">
+        <div class="ch"><span class="icon">📍</span> Zone Index</div>
+        <div class="cb" style="max-height:340px;overflow-y:auto;" id="zone-list-map"></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🔀</span> AI Status</div>
+        <div class="cb" id="ai-status-card">
+          <div style="font-size:12px;color:var(--text2);line-height:1.7;">
+            Toggle rerouting and signal optimization above to activate AI interventions. Changes propagate across all connected modules.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: PREDICTION ENGINE
+════════════════════════════════════ -->
+<div class="panel" id="panel-predict">
+  <div id="ds-predict"></div>
+  <div class="krow krow-4">
+    <div class="kcard"><div class="kl">Zones Predicted</div><div class="kv c-blue">18</div><div class="kd">All zones covered</div><div class="ki">🔮</div></div>
+    <div class="kcard"><div class="kl">Avg. Confidence</div><div class="kv c-green">91.4%</div><div class="kd">LSTM model accuracy</div><div class="ki">📈</div></div>
+    <div class="kcard"><div class="kl">High Risk 60min</div><div class="kv c-red" id="pred-high-risk">5</div><div class="kd">CI forecast &gt; 0.80</div><div class="ki">⚠️</div></div>
+    <div class="kcard"><div class="kl">Early Warnings</div><div class="kv c-yellow" id="pred-warnings">3</div><div class="kd">CI rising &gt;0.05/15min</div><div class="ki">🔔</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">📊</span> 60-Minute Demand Forecast — Top Corridors</div>
+      <div class="cb"><canvas id="chart-forecast" height="200"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">🎯</span> Confidence Distribution</div>
+      <div class="cb"><canvas id="chart-confidence" height="200"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="icon">🔮</span> Zone-by-Zone Predictions — All 18 Corridors</div>
+    <div class="cb">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;" id="pred-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: INCIDENT DETECTION
+════════════════════════════════════ -->
+<div class="panel" id="panel-incidents">
+  <div class="krow krow-5">
+    <div class="kcard"><div class="kl">Active Incidents</div><div class="kv c-red" id="inc-total">8</div><div class="kd">8 types detected by AI</div><div class="ki">🚨</div></div>
+    <div class="kcard"><div class="kl">Avg Confidence</div><div class="kv c-blue">87.3%</div><div class="kd">Detection accuracy</div><div class="ki">🎯</div></div>
+    <div class="kcard"><div class="kl">Avg Impact Radius</div><div class="kv c-yellow">2.4 km</div><div class="kd">Affected area</div><div class="ki">📍</div></div>
+    <div class="kcard"><div class="kl">Est. Total Delay</div><div class="kv c-orange">312 min</div><div class="kd">Cumulative disruption</div><div class="ki">⏱️</div></div>
+    <div class="kcard"><div class="kl">Alerts Sent</div><div class="kv c-green">2,840</div><div class="kd">Commuter notifications</div><div class="ki">📡</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">🚨</span> Live Incident Feed</div>
+      <div class="cb"><div id="incident-list" class="incident-grid" style="grid-template-columns:1fr;"></div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">📈</span> Incident Severity Distribution</div>
+      <div class="cb"><canvas id="chart-incidents" height="220"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: DIGITAL TWIN
+════════════════════════════════════ -->
+<div class="panel" id="panel-twin">
+  <div class="card">
+    <div class="ch"><span class="icon">🌐</span> Digital Twin City Simulator — Select Event Scenario</div>
+    <div class="cb">
+      <div class="scenario-grid" id="scenario-grid"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">📊</span> Before vs After Comparison</div>
+      <div class="cb">
+        <div id="twin-compare" class="twin-result">
+          <div class="twin-state" id="twin-before">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px;">BASELINE STATE</div>
+            <div class="twin-row"><span>Avg. Travel Time</span><span class="c-yellow">42 min</span></div>
+            <div class="twin-row"><span>Congested Zones</span><span class="c-red">7</span></div>
+            <div class="twin-row"><span>CO₂ Rate</span><span class="c-orange">430 kg/hr</span></div>
+            <div class="twin-row"><span>Throughput</span><span>Baseline</span></div>
+            <div class="twin-row"><span>Economic Loss</span><span>₹0 extra</span></div>
+          </div>
+          <div class="twin-vs"><div class="twin-arrow">⚡</div><div style="font-size:10px;color:var(--text3);">SELECT</div><div style="font-size:10px;color:var(--text3);">SCENARIO</div></div>
+          <div class="twin-state" id="twin-after">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:10px;">SIMULATED STATE</div>
+            <div class="twin-row"><span>Avg. Travel Time</span><span id="tw-travel" class="c-yellow">—</span></div>
+            <div class="twin-row"><span>Congested Zones</span><span id="tw-zones" class="c-red">—</span></div>
+            <div class="twin-row"><span>CO₂ Rate</span><span id="tw-co2" class="c-orange">—</span></div>
+            <div class="twin-row"><span>Throughput</span><span id="tw-throughput">—</span></div>
+            <div class="twin-row"><span>Economic Loss</span><span id="tw-econ" class="c-red">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">📉</span> Congestion Spread Forecast</div>
+      <div class="cb"><canvas id="chart-twin" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">🗺️</span> Impact Visualization — Congestion Spread</div>
+      <div class="cb" style="padding:0;">
+        <div id="twin-map" style="height:280px;"></div>
+        <div id="twin-map-info" style="padding:12px 16px;border-top:1px solid var(--b1);">
+          <div style="text-align:center;color:var(--text3);font-size:12px;">Select a scenario above to simulate congestion spread on the city map.</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">📐</span> Impact Metrics</div>
+      <div class="cb">
+        <div class="krow krow-2" style="gap:10px;" id="twin-impact-grid">
+          <div class="kcard"><div class="kl">Travel Time Increase</div><div class="kv c-yellow" id="tw-tti">—</div></div>
+          <div class="kcard"><div class="kl">CO₂ Increase</div><div class="kv c-orange" id="tw-co2i">—</div></div>
+          <div class="kcard"><div class="kl">Zones Affected</div><div class="kv c-red" id="tw-zones2">—</div></div>
+          <div class="kcard"><div class="kl">Economic Loss/hr</div><div class="kv c-red" id="tw-econ2">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: EMERGENCY RESPONSE
+════════════════════════════════════ -->
+<div class="panel" id="panel-emergency">
+  <div class="krow krow-4">
+    <div class="kcard" style="background:rgba(255,68,68,.06);border-color:rgba(255,68,68,.2);"><div class="kl">Emergency Active</div><div class="kv c-red" id="emg-active">2</div><div class="kd">Green corridors live</div><div class="ki">🚨</div></div>
+    <div class="kcard"><div class="kl">Normal ETA</div><div class="kv c-yellow" id="emg-eta-normal">18 min</div><div class="kd">Without AI corridor</div><div class="ki">⏱️</div></div>
+    <div class="kcard"><div class="kl">Optimized ETA</div><div class="kv c-green" id="emg-eta-opt">7 min</div><div class="kd">Green corridor active</div><div class="ki">⚡</div></div>
+    <div class="kcard"><div class="kl">Time Saved</div><div class="kv c-green" id="emg-saved">11 min</div><div class="kd">Life-critical improvement</div><div class="ki">❤️</div></div>
+  </div>
+
+  <div class="g13" style="grid-template-columns:1fr 280px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="icon">🚑</span> Select Emergency Vehicle</div>
+        <div class="cb">
+          <div class="vehicle-cards" id="vehicle-cards"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🛣️</span> Priority Route — Animated Green Corridor<span class="hdesc" id="emg-vehicle-name">Select vehicle above</span></div>
+        <div class="cb">
+          <div class="emg-steps" id="emg-route-steps"></div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-red" onclick="activateGreenCorridor()" id="btn-green-corridor">🚦 Activate Green Corridor</button>
+            <button class="btn btn-orange" onclick="resetEmergency()" style="margin-left:8px;">↺ Reset</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="icon">📊</span> Operations Dashboard</div>
+        <div class="cb">
+          <div style="margin-bottom:14px;"><canvas id="chart-emg" height="160"></canvas></div>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="emg-signals-display"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🧠</span> AI Decision</div>
+        <div class="cb">
+          <div class="xai-card" style="background:transparent;padding:0;" id="emg-xai"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: FLIPKART FLEET
+════════════════════════════════════ -->
+<div class="panel" id="panel-flipkart">
+  <div id="ds-flipkart"></div>
+  <div class="krow krow-5">
+    <div class="kcard" style="background:rgba(255,138,0,.06);border-color:rgba(255,138,0,.25);">
+      <div class="kl">Orders in Transit</div>
+      <div class="kv c-yellow">142</div>
+      <div class="kd">Active deliveries</div><div class="ki">📦</div>
+    </div>
+    <div class="kcard"><div class="kl">On Time</div><div class="kv c-green" id="fk-ontime">133</div><div class="kd">93.7% success rate</div><div class="ki">✅</div></div>
+    <div class="kcard"><div class="kl">At Risk</div><div class="kv c-yellow" id="fk-atrisk">9</div><div class="kd">Predicted delay &gt;15min</div><div class="ki">⚠️</div></div>
+    <div class="kcard"><div class="kl">AI Time Saved</div><div class="kv c-cyan" id="fk-saved">13 min</div><div class="kd">Avg per delivery</div><div class="ki">⚡</div></div>
+    <div class="kcard"><div class="kl">Fuel Saved</div><div class="kv c-green" id="fk-fuel">₹3.2L</div><div class="kd">Today's estimate</div><div class="ki">⛽</div></div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="icon">🗺️</span> Logistics Route Overlay — Hub-to-Customer<span class="hdesc">Fleet tracking + AI routes</span></div>
+    <div class="cb" style="padding:0;"><div id="fleet-map" style="height:260px;"></div></div>
+  </div>
+
+  <div class="g13" style="grid-template-columns:1fr 300px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch">
+          <span class="icon">📦</span> Live Delivery Fleet
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <button class="btn btn-blue" onclick="optimizeFleet()" id="btn-fleet-opt">⚡ Optimize All Routes</button>
+          </div>
+        </div>
+        <div class="cb" style="display:flex;flex-direction:column;gap:8px;" id="fleet-list"></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="icon">📊</span> Fleet Performance</div>
+        <div class="cb"><canvas id="chart-fleet" height="180"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🎯</span> Before vs After AI</div>
+        <div class="cb">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px;">
+            <div style="text-align:center;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Normal Delivery</div><div class="kv c-yellow" style="font-size:24px;">42 min</div></div>
+            <div style="font-size:24px;color:var(--text3);">→</div>
+            <div style="text-align:center;"><div style="font-size:11px;color:var(--text3);margin-bottom:4px;">AI Optimized</div><div class="kv c-green" style="font-size:24px;" id="fk-ai-time">29 min</div></div>
+          </div>
+          <div class="pbar"><div class="pbar-fill" style="width:69%;background:linear-gradient(90deg,var(--yellow),var(--green));"></div></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center;"><span class="c-green">13 min saved</span> — 31% improvement</div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text3);">Estimated Savings:</div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:12px;">
+            <div><div class="kv c-green" style="font-size:18px;">₹2.4L</div><div class="kd">Fuel/day</div></div>
+            <div><div class="kv c-cyan" style="font-size:18px;">94%</div><div class="kd">On-time rate</div></div>
+            <div><div class="kv c-yellow" style="font-size:18px;">+31%</div><div class="kd">Efficiency</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: SMART SIGNALS
+════════════════════════════════════ -->
+<div class="panel" id="panel-signals">
+  <div class="krow krow-4">
+    <div class="kcard"><div class="kl">Junctions Monitored</div><div class="kv c-blue">6</div><div class="kd">Real-time queue data</div><div class="ki">🚦</div></div>
+    <div class="kcard"><div class="kl">Optimized Now</div><div class="kv c-green" id="sig-opt-count">0</div><div class="kd">AI-controlled</div><div class="ki">⚡</div></div>
+    <div class="kcard"><div class="kl">Avg Wait Reduction</div><div class="kv c-cyan" id="sig-wait-red">—</div><div class="kd">vs default timing</div><div class="ki">⏱️</div></div>
+    <div class="kcard"><div class="kl">Throughput Gain</div><div class="kv c-green" id="sig-throughput">—</div><div class="kd">Vehicles per hour</div><div class="ki">📈</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch">
+        <span class="icon">🚦</span> Junction Signal Controller
+        <div style="margin-left:auto;">
+          <button class="btn btn-green" onclick="optimizeSignals()" id="btn-optimize-sigs">⚡ Optimize All</button>
+          <button class="btn btn-orange" onclick="resetSignals()" style="margin-left:8px;">↺ Reset</button>
+        </div>
+      </div>
+      <div class="cb">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;" id="signals-grid"></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="icon">📊</span> Signal Efficiency Chart</div>
+        <div class="cb"><canvas id="chart-signals" height="180"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🧠</span> Algorithm B — Signal Reasoning</div>
+        <div class="cb">
+          <div id="sig-xai-content">
+            <div style="font-size:12px;color:var(--text2);">Click "Optimize All" to see AI reasoning for each junction.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: EXPLAINABLE AI
+════════════════════════════════════ -->
+<div class="panel" id="panel-xai">
+  <div class="krow krow-3">
+    <div class="kcard"><div class="kl">Decisions Explained</div><div class="kv c-blue">847</div><div class="kd">Today's decisions</div><div class="ki">🧠</div></div>
+    <div class="kcard"><div class="kl">Avg Decision Conf.</div><div class="kv c-green">91.2%</div><div class="kd">Model certainty</div><div class="ki">🎯</div></div>
+    <div class="kcard"><div class="kl">Overrides by Humans</div><div class="kv c-yellow">3</div><div class="kd">Manual corrections</div><div class="ki">👤</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">🔀</span> Rerouting Decision — Silk Board Junction</div>
+      <div class="cb" id="xai-rerouting"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">🚦</span> Signal Optimization Decision — Hebbal</div>
+      <div class="cb" id="xai-signals"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">📦</span> Fleet Route Decision — Order #FK-88291</div>
+      <div class="cb" id="xai-fleet"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">🚑</span> Green Corridor Decision — Ambulance BLR-429</div>
+      <div class="cb" id="xai-emg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: IMPACT ANALYTICS
+════════════════════════════════════ -->
+<div class="panel" id="panel-analytics">
+  <div class="krow krow-4">
+    <div class="kcard"><div class="kl">ETT Saved (Today)</div><div class="kv c-green">14,820 min</div><div class="kd">↑ 23% vs baseline</div><div class="ki">⏱️</div></div>
+    <div class="kcard"><div class="kl">CO₂ Avoided</div><div class="kv c-green">4.8 tons</div><div class="kd">≡ 240 trees</div><div class="ki">🌿</div></div>
+    <div class="kcard"><div class="kl">Fuel Cost Savings</div><div class="kv c-yellow">₹2.4L</div><div class="kd">Per day estimate</div><div class="ki">⛽</div></div>
+    <div class="kcard"><div class="kl">Economic Impact</div><div class="kv c-cyan">₹18.6L</div><div class="kd">Productivity gain/day</div><div class="ki">💰</div></div>
+  </div>
+
+  <!-- Time scale selector -->
+  <div style="display:flex;gap:8px;margin-bottom:-10px;">
+    <button class="btn btn-blue" id="scale-day" onclick="setTimeScale('day')">Daily</button>
+    <button class="btn" id="scale-week" onclick="setTimeScale('week')" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);">Weekly</button>
+    <button class="btn" id="scale-month" onclick="setTimeScale('month')" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);">Monthly</button>
+    <button class="btn" id="scale-year" onclick="setTimeScale('year')" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);">Yearly</button>
+  </div>
+
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="icon">⏱️</span> Travel Time Saved (min)</div><div class="cb"><canvas id="chart-an-travel" height="200"></canvas></div></div>
+    <div class="card"><div class="ch"><span class="icon">🌱</span> CO₂ Reduction (kg)</div><div class="cb"><canvas id="chart-an-co2" height="200"></canvas></div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="icon">📦</span> Delivery Efficiency Gain (%)</div><div class="cb"><canvas id="chart-an-delivery" height="200"></canvas></div></div>
+    <div class="card"><div class="ch"><span class="icon">💰</span> Economic Savings (₹ Lakhs)</div><div class="cb"><canvas id="chart-an-econ" height="200"></canvas></div></div>
+  </div>
+
+  <div class="card">
+    <div class="ch"><span class="icon">📐</span> Comprehensive Impact Summary</div>
+    <div class="cb">
+      <div class="krow krow-4">
+        <div class="kcard"><div class="kl">Emergency Response Gain</div><div class="kv c-red">-11 min</div><div class="kd">Avg ETA improvement</div></div>
+        <div class="kcard"><div class="kl">Citizen Productivity</div><div class="kv c-cyan">+23%</div><div class="kd">Time reclaimed daily</div></div>
+        <div class="kcard"><div class="kl">Road Utilization</div><div class="kv c-green">+31%</div><div class="kd">Throughput improvement</div></div>
+        <div class="kcard"><div class="kl">Yearly CO₂ Projection</div><div class="kv c-green">1,752 t</div><div class="kd">Annual avoided emissions</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: ARCHITECTURE
+════════════════════════════════════ -->
+<div class="panel" id="panel-arch">
+  <div class="krow krow-3">
+    <div class="kcard"><div class="kl">Components</div><div class="kv c-blue">14</div><div class="kd">Microservice modules</div></div>
+    <div class="kcard"><div class="kl">Data Pipeline</div><div class="kv c-cyan">Real-time</div><div class="kd">WebSocket + REST</div></div>
+    <div class="kcard"><div class="kl">ML Models</div><div class="kv c-green">5</div><div class="kd">LSTM, RF, GNN, XGB, DNN</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="ch">
+        <span class="icon">🏗️</span> System Architecture Flow
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button class="btn btn-blue" onclick="downloadArchPNG()">⬇ Architecture PNG</button>
+          <button class="btn btn-green" onclick="downloadSystemPDF()">⬇ System Report PDF</button>
+        </div>
+      </div>
+      <div class="cb">
+        <div class="arch-flow" id="arch-flow"></div>
+        <div id="ds-arch"></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="card">
+        <div class="ch"><span class="icon">💾</span> Data Schema</div>
+        <div class="cb">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);line-height:1.8;background:var(--bg0);padding:14px;border-radius:var(--r);overflow-x:auto;">
+<span style="color:var(--cyan)">TrafficZone</span> {<br>
+&nbsp;&nbsp;geohash: <span style="color:var(--yellow)">string</span>,<br>
+&nbsp;&nbsp;ci: <span style="color:var(--yellow)">float[0-1]</span>,<br>
+&nbsp;&nbsp;demand: <span style="color:var(--yellow)">float</span>,<br>
+&nbsp;&nbsp;road_type: <span style="color:var(--yellow)">enum</span>,<br>
+&nbsp;&nbsp;lanes: <span style="color:var(--yellow)">int</span>,<br>
+&nbsp;&nbsp;weather: <span style="color:var(--yellow)">enum</span>,<br>
+&nbsp;&nbsp;pred_15min: <span style="color:var(--yellow)">float</span>,<br>
+&nbsp;&nbsp;pred_30min: <span style="color:var(--yellow)">float</span>,<br>
+&nbsp;&nbsp;pred_60min: <span style="color:var(--yellow)">float</span>,<br>
+&nbsp;&nbsp;confidence: <span style="color:var(--yellow)">float</span>,<br>
+&nbsp;&nbsp;risk_level: <span style="color:var(--yellow)">enum</span>,<br>
+}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="icon">🔌</span> API Endpoints</div>
+        <div class="cb">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text2);line-height:2;">
+            <div><span style="color:var(--green)">GET</span>  /api/zones/live</div>
+            <div><span style="color:var(--green)">GET</span>  /api/predict/{geohash}</div>
+            <div><span style="color:var(--blue)">POST</span> /api/reroute</div>
+            <div><span style="color:var(--blue)">POST</span> /api/signals/optimize</div>
+            <div><span style="color:var(--green)">GET</span>  /api/incidents/active</div>
+            <div><span style="color:var(--blue)">POST</span> /api/emergency/corridor</div>
+            <div><span style="color:var(--green)">GET</span>  /api/fleet/status</div>
+            <div><span style="color:var(--blue)">POST</span> /api/twin/simulate</div>
+            <div><span style="color:var(--green)">WS</span>   /ws/live-feed</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: AI & ML CENTER
+════════════════════════════════════ -->
+<div class="panel" id="panel-mlcenter">
+  <div class="krow krow-4">
+    <div class="kcard kcard-pro"><div class="kl">Prediction Accuracy</div><div class="kv c-green">94.2%</div><div class="kd">60-min horizon validation</div><div id="meta-ml-acc"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Models Deployed</div><div class="kv c-blue">5</div><div class="kd">LSTM · XGB · GNN · RF · DNN</div><div id="meta-ml-models"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Training Samples</div><div class="kv c-cyan">71,402</div><div class="kd">Hackathon dataset + live feed</div><div id="meta-ml-train"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Inference Latency</div><div class="kv c-yellow">42ms</div><div class="kd">P99 across 18 zones</div><div id="meta-ml-lat"></div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">📥</span> Input Features — Feature Engineering Layer</div>
+      <div class="cb"><div class="feature-grid" id="ml-features"></div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">⚙️</span> Model Pipeline — How AI Works</div>
+      <div class="cb"><div class="ml-flow" id="ml-pipeline"></div></div>
+    </div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="ch"><span class="icon">📊</span> Model Performance Metrics</div>
+      <div class="cb"><div class="metric-grid" id="ml-metrics"></div></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">📈</span> Prediction Accuracy Over Time</div>
+      <div class="cb"><canvas id="chart-ml-acc" height="200"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: FLIPKART BUSINESS IMPACT
+════════════════════════════════════ -->
+<div class="panel" id="panel-bizimpact">
+  <div class="krow krow-4">
+    <div class="kcard kcard-pro"><div class="kl">Revenue Protected</div><div class="kv c-green">₹18.6L</div><div class="kd">Per day — SLA breach prevention</div><div id="meta-biz-rev"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Late Deliveries Prevented</div><div class="kv c-cyan">847</div><div class="kd">Orders/day saved from delay</div><div id="meta-biz-late"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Customer Satisfaction</div><div class="kv c-yellow">+12%</div><div class="kd">NPS improvement estimate</div><div id="meta-biz-csat"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Fleet Efficiency</div><div class="kv c-green">+31%</div><div class="kd">Routes optimized by AI</div><div id="meta-biz-fleet"></div></div>
+  </div>
+  <div class="krow krow-4">
+    <div class="kcard kcard-pro"><div class="kl">Warehouse Throughput</div><div class="kv c-blue">+18%</div><div class="kd">Hub dispatch efficiency</div><div id="meta-biz-wh"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Delivery Success Rate</div><div class="kv c-green">99.4%</div><div class="kd">After AI vs 93.7% baseline</div><div id="meta-biz-dsr"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Fuel Savings</div><div class="kv c-yellow">₹2.4L</div><div class="kd">Daily fleet fuel cost reduction</div><div id="meta-biz-fuel"></div></div>
+    <div class="kcard kcard-pro"><div class="kl">Total Cost Savings</div><div class="kv c-cyan">₹4.8L</div><div class="kd">Fuel + ops + penalty avoidance</div><div id="meta-biz-cost"></div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="icon">📦</span> Delivery Success — Before vs After AI</div><div class="cb"><canvas id="chart-biz-delivery" height="200"></canvas></div></div>
+    <div class="card"><div class="ch"><span class="icon">💰</span> Revenue Protected — Daily Trend</div><div class="cb"><canvas id="chart-biz-revenue" height="200"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: WHY GRIDLOCK 2.0
+════════════════════════════════════ -->
+<div class="panel" id="panel-executive">
+  <div class="exec-section" style="border-color:rgba(255,107,0,.3);background:rgba(255,107,0,.04);">
+    <h3 style="color:var(--orange);">🎯 Problem — Bengaluru Gridlock Crisis</h3>
+    <p>Bengaluru loses <strong>₹18.6L/day</strong> in productivity. Average commute: <strong>42 minutes</strong>. Flipkart faces <strong>9 at-risk deliveries</strong> per peak hour with SLA penalties. Emergency response ETA averages <strong>18 minutes</strong> without AI corridors.</p>
+  </div>
+  <div class="g2">
+    <div class="exec-section"><h3>⚠️ Challenges</h3><ul style="margin-left:16px;"><li>Congestion Index &gt; 0.80 on 4+ critical corridors</li><li>Delivery delays costing Flipkart ₹2.4L/day in fuel alone</li><li>Emergency response delayed by signal congestion</li><li>430 kg/hr CO₂ from idle traffic</li><li>No predictive intelligence in legacy systems</li></ul></div>
+    <div class="exec-section"><h3>✅ Solution — AI-Powered Intelligence</h3><p>Gridlock 2.0 integrates <strong>17 AI modules</strong> into a unified platform: predict congestion 60 minutes ahead, detect incidents in real-time, optimize signals, create green corridors, and protect Flipkart deliveries — all with explainable AI.</p></div>
+  </div>
+  <div class="exec-section"><h3>⚡ Key Features</h3>
+    <div class="feature-grid" style="grid-template-columns:repeat(6,1fr);">
+      <div class="feature-pill">🔮 Prediction</div><div class="feature-pill">🚨 Incidents</div><div class="feature-pill">🚑 Emergency</div>
+      <div class="feature-pill">📦 Fleet AI</div><div class="feature-pill">🌐 Digital Twin</div><div class="feature-pill">🧠 XAI</div>
+    </div>
+  </div>
+  <div class="exec-section"><h3>📊 Results — Measurable Impact</h3>
+    <div class="exec-results">
+      <div class="exec-result"><div class="kv c-green" style="font-size:22px;">-31%</div><div class="kd">Travel Time</div></div>
+      <div class="exec-result"><div class="kv c-yellow" style="font-size:22px;">₹2.4L</div><div class="kd">Fuel Saved/Day</div></div>
+      <div class="exec-result"><div class="kv c-cyan" style="font-size:22px;">+5.7%</div><div class="kd">Delivery Success</div></div>
+      <div class="exec-result"><div class="kv c-red" style="font-size:22px;">-11 min</div><div class="kd">Emergency ETA</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: ROI & IMPACT CENTER
+════════════════════════════════════ -->
+<div class="panel" id="panel-roi">
+  <div style="display:flex;gap:8px;margin-bottom:4px;">
+    <button class="btn btn-blue" id="roi-day" onclick="setRoiScale('day')">Daily</button>
+    <button class="btn" id="roi-week" onclick="setRoiScale('week')" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);">Weekly</button>
+    <button class="btn" id="roi-month" onclick="setRoiScale('month')" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);">Monthly</button>
+    <button class="btn" id="roi-year" onclick="setRoiScale('year')" style="background:var(--bg3);border-color:var(--b2);color:var(--text2);">Yearly</button>
+  </div>
+  <div class="krow krow-4" id="roi-kpis"></div>
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="icon">⛽</span> Fuel Saved — Litres & ₹ Value</div><div class="cb"><canvas id="chart-roi-fuel" height="200"></canvas></div></div>
+    <div class="card"><div class="ch"><span class="icon">🌿</span> CO₂ Reduced — Tons/Day</div><div class="cb"><canvas id="chart-roi-co2" height="200"></canvas></div></div>
+  </div>
+  <div class="g2">
+    <div class="card"><div class="ch"><span class="icon">⏱️</span> Citizen Time Saved — Hours/Day</div><div class="cb"><canvas id="chart-roi-time" height="200"></canvas></div></div>
+    <div class="card"><div class="ch"><span class="icon">💰</span> Economic Impact — ₹/Day</div><div class="cb"><canvas id="chart-roi-econ" height="200"></canvas></div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: COMPETITIVE ADVANTAGE
+════════════════════════════════════ -->
+<div class="panel" id="panel-advantage">
+  <div class="card">
+    <div class="ch"><span class="icon">🏆</span> Why Gridlock 2.0 Wins — Capability Comparison</div>
+    <div class="cb" style="overflow-x:auto;">
+      <table class="cmp-table" id="cmp-table"></table>
+    </div>
+  </div>
+  <div class="g2" style="margin-top:14px;">
+    <div class="card"><div class="ch"><span class="icon">📊</span> Feature Coverage — Gridlock 2.0 vs Traditional</div><div class="cb"><canvas id="chart-advantage" height="220"></canvas></div></div>
+    <div class="card"><div class="ch"><span class="icon">🎯</span> Judge Summary — Unique Differentiators</div><div class="cb" style="font-size:12px;color:var(--text2);line-height:1.8;">
+      <p><strong class="c-green">✓ Only platform</strong> combining traffic prediction + Flipkart logistics + emergency response in one system.</p>
+      <p><strong class="c-green">✓ Explainable AI</strong> on every decision — not a black box.</p>
+      <p><strong class="c-green">✓ Digital Twin</strong> for scenario planning before events occur.</p>
+      <p><strong class="c-green">✓ Production-ready</strong> architecture with REST API, WebSocket, PostgreSQL schema.</p>
+      <p><strong class="c-green">✓ Measurable ROI</strong> — ₹18.6L/day economic impact with full audit trail.</p>
+    </div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     PANEL: ADMIN CONTROL CENTER
+════════════════════════════════════ -->
+<div class="panel" id="panel-admin">
+  <div class="admin-status-bar">
+    <div class="admin-status-item"><span class="ldot" style="background:var(--green);"></span><span>AI Engine: <strong id="admin-ai-status" class="c-green">ENABLED</strong></span></div>
+    <div class="admin-status-item"><span class="ldot" style="background:var(--cyan);"></span><span>Zones: <strong>18/18</strong></span></div>
+    <div class="admin-status-item"><span class="ldot" style="background:var(--yellow);"></span><span>Incidents: <strong id="admin-inc-count">8</strong></span></div>
+    <div class="admin-status-item"><span class="ldot" style="background:var(--pink);"></span><span>Demo Stage: <strong id="admin-demo-stage">Idle</strong></span></div>
+    <div class="admin-status-item"><span class="badge badge-live" style="padding:2px 8px;"><span class="ldot"></span>OPS LIVE</span></div>
+  </div>
+
+  <div class="admin-grid">
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🚦 Traffic Controls</div>
+      <div class="admin-btn-row">
+        <button class="admin-btn admin-btn-red" onclick="adminInject('accident')">💥 Accident</button>
+        <button class="admin-btn admin-btn-orange" onclick="adminInject('closure')">🚧 Road Closure</button>
+        <button class="admin-btn admin-btn-yellow" onclick="adminInject('construction')">🏗️ Construction</button>
+        <button class="admin-btn admin-btn-blue" onclick="adminInject('flooding')">🌊 Flooding</button>
+        <button class="admin-btn admin-btn-violet" onclick="adminInject('festival')">🎉 Festival</button>
+        <button class="admin-btn admin-btn-orange" onclick="adminInject('surge')">📈 Vehicle Surge</button>
+        <button class="admin-btn admin-btn-green" onclick="adminClearIncidents()">✓ Clear Incidents</button>
+        <button class="admin-btn admin-btn-blue" onclick="adminResetTraffic()">↺ Reset Traffic</button>
+      </div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🚨 Incident Generator</div>
+      <div class="admin-form">
+        <select id="adm-inc-type"><option>Accident</option><option>Vehicle Breakdown</option><option>Road Closure</option><option>Flooding</option><option>Construction Work</option><option>Festival Traffic</option><option>Political Rally</option><option>Public Event Surge</option></select>
+        <select id="adm-inc-loc"><option>Silk Board Junction</option><option>Hebbal Flyover</option><option>ORR Near Marathahalli</option><option>MG Road Corridor</option><option>Whitefield IT Park</option><option>Electronic City Ph1</option></select>
+        <select id="adm-inc-sev"><option>Critical</option><option>High</option><option selected>Moderate</option></select>
+        <input id="adm-inc-dur" type="number" placeholder="Duration (min)" value="45"/>
+        <input id="adm-inc-rad" type="number" placeholder="Impact radius (km)" value="2" step="0.1"/>
+        <button class="admin-btn admin-btn-red full" onclick="adminCreateIncident()">⚡ Create Incident</button>
+      </div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🚑 Emergency Operations</div>
+      <div class="admin-form">
+        <select id="adm-emg-type"><option value="v1">🚑 Ambulance</option><option value="v2">🚒 Fire Truck</option><option value="v3">🚔 Police</option></select>
+        <select id="adm-emg-pri"><option>Critical</option><option>High</option><option>Standard</option></select>
+        <input id="adm-emg-origin" placeholder="Origin" value="NIMHANS Hospital" class="full"/>
+        <input id="adm-emg-dest" placeholder="Destination" value="Silk Board Junction" class="full"/>
+        <button class="admin-btn admin-btn-red full" onclick="adminDispatchEmergency()">🛣️ Dispatch + Green Corridor</button>
+      </div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">📦 Flipkart Fleet Control</div>
+      <div class="admin-btn-row">
+        <button class="admin-btn admin-btn-yellow" onclick="adminFleetAction('delays')">⚠️ Gen Delays</button>
+        <button class="admin-btn admin-btn-orange" onclick="adminFleetAction('surge')">🏭 WH Surge</button>
+        <button class="admin-btn admin-btn-violet" onclick="adminFleetAction('volume')">📈 Order Volume</button>
+        <button class="admin-btn admin-btn-red" onclick="adminFleetAction('breakdown')">🔧 Breakdown</button>
+        <button class="admin-btn admin-btn-green" onclick="optimizeFleet();adminLog('Fleet optimization triggered')">⚡ Optimize Fleet</button>
+        <button class="admin-btn admin-btn-blue" onclick="adminFleetAction('reset')">↺ Reset Fleet</button>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3);">At Risk: <strong id="adm-fleet-risk" class="c-yellow">9</strong> · In Transit: <strong id="adm-fleet-transit">142</strong></div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🧠 AI Controls</div>
+      <div class="admin-btn-row">
+        <button class="admin-btn admin-btn-blue" onclick="adminRunAI('predict')">🔮 Predict</button>
+        <button class="admin-btn admin-btn-red" onclick="adminRunAI('incident')">🚨 Detect</button>
+        <button class="admin-btn admin-btn-green" onclick="adminRunAI('route')">🔀 Reroute</button>
+        <button class="admin-btn admin-btn-yellow" onclick="adminRunAI('signal')">🚦 Signals</button>
+        <button class="admin-btn admin-btn-orange" onclick="adminRunAI('fleet')">📦 Fleet</button>
+        <button class="admin-btn admin-btn-violet" onclick="generateExecutiveReport()">📋 Report</button>
+        <button class="admin-btn admin-btn-blue" onclick="adminResetAI()">↺ Reset AI</button>
+      </div>
+      <div id="admin-ai-log" class="admin-log" style="margin-top:8px;">AI engine ready...</div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🌐 Digital Twin Controls</div>
+      <div class="admin-btn-row">
+        <button class="admin-btn admin-btn-blue" onclick="adminTwin('rain')">🌧️ Rain</button>
+        <button class="admin-btn admin-btn-red" onclick="adminTwin('accident')">💥 Accident</button>
+        <button class="admin-btn admin-btn-orange" onclick="adminTwin('closure')">🚧 Closure</button>
+        <button class="admin-btn admin-btn-yellow" onclick="adminTwin('metro')">🚇 Metro</button>
+        <button class="admin-btn admin-btn-violet" onclick="adminTwin('festival')">🎉 Festival</button>
+        <button class="admin-btn admin-btn-red" onclick="adminTwin('emergency')">🚨 Emergency</button>
+        <button class="admin-btn admin-btn-orange" onclick="adminTwin('const')">🏗️ Construction</button>
+        <button class="admin-btn admin-btn-yellow" onclick="adminTwin('demand')">📈 Surge</button>
+      </div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🎬 Demo Control Panel</div>
+      <div class="admin-btn-row">
+        <button class="admin-btn admin-btn-violet" onclick="startDemo()">▶ Run Full Demo</button>
+        <button class="admin-btn admin-btn-yellow" onclick="pauseDemo()">⏸ Pause</button>
+        <button class="admin-btn admin-btn-green" onclick="resumeDemo()">▶ Resume</button>
+        <button class="admin-btn admin-btn-blue" onclick="restartDemo()">↺ Restart</button>
+        <button class="admin-btn admin-btn-orange" onclick="skipDemoStep()">⏭ Skip</button>
+        <button class="admin-btn admin-btn-red" onclick="resetDemo()">⏹ Reset</button>
+      </div>
+      <div class="demo-stage" id="admin-demo-stage-detail">Stage: Idle — 0/12</div>
+    </div>
+    <div class="admin-ctrl-group">
+      <div class="admin-ctrl-title">🏆 Judge Mode</div>
+      <button class="admin-btn admin-btn-violet" style="width:100%;padding:12px;font-size:13px;" onclick="runJudgeDemo()">🎯 Run Judge Demonstration</button>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px;">10-step automated sequence · 60–90 seconds · Full platform showcase</div>
+    </div>
+  </div>
+
+  <div class="g2" style="margin-top:14px;">
+    <div class="card">
+      <div class="ch"><span class="icon">📜</span> Live Operations Timeline</div>
+      <div class="cb admin-timeline" id="admin-timeline"></div>
+    </div>
+    <div class="card">
+      <div class="ch"><span class="icon">🛑</span> Master System Controls</div>
+      <div class="cb">
+        <div class="admin-btn-row">
+          <button class="admin-btn admin-btn-red" onclick="adminConfirm('stop','Emergency Stop — halt all AI operations?')">🛑 E-Stop</button>
+          <button class="admin-btn admin-btn-orange" onclick="adminConfirm('resetCity','Reset entire city state?')">↺ Reset City</button>
+          <button class="admin-btn admin-btn-yellow" onclick="adminClearIncidents()">Clear Incidents</button>
+          <button class="admin-btn admin-btn-red" onclick="adminToggleAI(false)">Disable AI</button>
+          <button class="admin-btn admin-btn-green" onclick="adminToggleAI(true)">Enable AI</button>
+          <button class="admin-btn admin-btn-blue" onclick="adminConfirm('resetAll','Reset ALL systems?')">⚠️ Full Reset</button>
+        </div>
+        <div id="admin-sys-log" class="admin-log" style="margin-top:10px;">System nominal. All modules operational.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<!-- ═══ AI OPERATIONS COPILOT ═══ -->
+<button id="copilot-fab" onclick="toggleCopilot()" title="AI Operations Copilot">🤖</button>
+<div id="copilot-panel">
+  <div class="copilot-hdr">
+    <div style="font-size:24px;">🤖</div>
+    <div><div class="copilot-hdr-title">AI Operations Copilot</div><div class="copilot-hdr-sub">Enterprise traffic & logistics intelligence</div></div>
+    <button onclick="toggleCopilot()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;">✕</button>
+  </div>
+  <div class="copilot-chips" id="copilot-chips"></div>
+  <div class="copilot-msgs" id="copilot-msgs"></div>
+  <div class="copilot-input-row">
+    <input id="copilot-input" placeholder="Ask about traffic, logistics, emergency..." onkeydown="if(event.key==='Enter')sendCopilot()"/>
+    <button class="btn btn-blue" onclick="sendCopilot()">Send</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT ENGINE
+═══════════════════════════════════════════════════ -->
+<script>
+'use strict';
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const ZONES=[
+  {id:'z1', name:'Silk Board Junction',    geohash:'tdr1v9', lat:12.9175,lng:77.6228,ci:.74,type:'Residential',lanes:4,weather:'Sunny'},
+  {id:'z2', name:'Outer Ring Road',        geohash:'tdr2k3', lat:12.9352,lng:77.6500,ci:.87,type:'Highway',    lanes:6,weather:'Sunny'},
+  {id:'z3', name:'Hebbal Flyover',         geohash:'tdr3m8', lat:13.0453,lng:77.5949,ci:.82,type:'Highway',    lanes:4,weather:'Cloudy'},
+  {id:'z4', name:'KR Puram Bridge',        geohash:'tdr4n2', lat:13.0095,lng:77.6879,ci:.79,type:'Residential',lanes:2,weather:'Rainy'},
+  {id:'z5', name:'Marathahalli Bridge',    geohash:'tdr5p1', lat:12.9592,lng:77.6974,ci:.75,type:'Commercial', lanes:4,weather:'Sunny'},
+  {id:'z6', name:'Bellandur Junction',     geohash:'tdr6q4', lat:12.9247,lng:77.6741,ci:.71,type:'Residential',lanes:3,weather:'Sunny'},
+  {id:'z7', name:'Sarjapur Road',          geohash:'tdr7r7', lat:12.8980,lng:77.6831,ci:.68,type:'Commercial', lanes:3,weather:'Sunny'},
+  {id:'z8', name:'Electronic City Ph1',    geohash:'tdr8s0', lat:12.8456,lng:77.6644,ci:.62,type:'Industrial', lanes:4,weather:'Sunny'},
+  {id:'z9', name:'Whitefield IT Park',     geohash:'tdr9t5', lat:12.9698,lng:77.7499,ci:.58,type:'Commercial', lanes:4,weather:'Cloudy'},
+  {id:'z10',name:'MG Road Corridor',       geohash:'tdr0u2', lat:12.9757,lng:77.6011,ci:.54,type:'Commercial', lanes:4,weather:'Sunny'},
+  {id:'z11',name:'Rajajinagar Junction',   geohash:'tdr1w6', lat:12.9895,lng:77.5546,ci:.48,type:'Residential',lanes:3,weather:'Sunny'},
+  {id:'z12',name:'Koramangala 5th Block',  geohash:'tdr2x9', lat:12.9252,lng:77.6245,ci:.44,type:'Residential',lanes:2,weather:'Sunny'},
+  {id:'z13',name:'JP Nagar 7th Phase',     geohash:'tdr3y1', lat:12.8862,lng:77.5859,ci:.39,type:'Residential',lanes:2,weather:'Sunny'},
+  {id:'z14',name:'Banashankari Bus Stand', geohash:'tdr4z8', lat:12.9247,lng:77.5466,ci:.35,type:'Commercial', lanes:3,weather:'Sunny'},
+  {id:'z15',name:'Indiranagar 100ft Rd',   geohash:'tdr5a3', lat:12.9784,lng:77.6408,ci:.31,type:'Residential',lanes:2,weather:'Sunny'},
+  {id:'z16',name:'Yelahanka New Town',     geohash:'tdr6b7', lat:13.1005,lng:77.5963,ci:.27,type:'Residential',lanes:2,weather:'Cloudy'},
+  {id:'z17',name:'Peenya Industrial Area', geohash:'tdr7c4', lat:13.0289,lng:77.5182,ci:.22,type:'Industrial', lanes:4,weather:'Sunny'},
+  {id:'z18',name:'Kengeri Satellite Town', geohash:'tdr8d9', lat:12.9027,lng:77.4836,ci:.18,type:'Residential',lanes:2,weather:'Rainy'},
+];
+
+let INCIDENTS=[
+  {id:'i1',type:'Accident',icon:'💥',location:'Silk Board Junction',lat:12.9175,lng:77.6228,severity:'Critical',conf:96,delay:35,radius:2.8,action:'Emergency services dispatched',color:'#ff4444',time:'08:42 IST'},
+  {id:'i2',type:'Vehicle Breakdown',icon:'🚗',location:'ORR Near Marathahalli',lat:12.9500,lng:77.6700,severity:'Moderate',conf:89,delay:12,radius:1.2,action:'Traffic police alerted',color:'#ffd740',time:'09:01 IST'},
+  {id:'i3',type:'Road Closure',icon:'🚧',location:'Hebbal Flyover — Lane 2',lat:13.0453,lng:77.5949,severity:'High',conf:99,delay:28,radius:3.5,action:'Alternate route activated',color:'#ff8c42',time:'07:55 IST'},
+  {id:'i4',type:'Flooding',icon:'🌊',location:'Bellandur Lake Area',lat:12.9247,lng:77.6741,severity:'High',conf:91,delay:45,radius:4.0,action:'Diversion in place',color:'#3b9eff',time:'06:30 IST'},
+  {id:'i5',type:'Festival Traffic',icon:'🎉',location:'MG Road — Cubbon Park',lat:12.9757,lng:77.6011,severity:'Moderate',conf:83,delay:22,radius:2.0,action:'Extra signals deployed',color:'#b06fff',time:'10:00 IST'},
+  {id:'i6',type:'Construction Work',icon:'🏗️',location:'ORR @ BTM Layout',lat:12.9160,lng:77.6100,severity:'Moderate',conf:94,delay:18,radius:1.8,action:'Merge lanes — reduce speed to 40 km/h',color:'#ff8c42',time:'07:20 IST'},
+  {id:'i7',type:'Political Rally',icon:'📢',location:'Vidhana Soudha Corridor',lat:12.9796,lng:77.5907,severity:'High',conf:88,delay:40,radius:3.2,action:'Pre-reroute ORR traffic — road blocks scheduled',color:'#ff4444',time:'11:00 IST'},
+  {id:'i8',type:'Public Event Surge',icon:'🎤',location:'Palace Grounds — Concert',lat:13.0050,lng:77.5900,severity:'High',conf:92,delay:32,radius:2.6,action:'Metro surge pricing — fleet pre-positioned',color:'#b06fff',time:'18:00 IST'},
+];
+const INCIDENTS_BASE=JSON.parse(JSON.stringify(INCIDENTS));
+
+const SCENARIOS=[
+  {id:'rain',    icon:'🌧️',name:'Heavy Rain',   desc:'City-wide rainfall'},
+  {id:'accident',icon:'💥',name:'Major Accident',desc:'Silk Board collision'},
+  {id:'closure', icon:'🚧',name:'Road Closure',  desc:'ORR lane blocked'},
+  {id:'metro',   icon:'🚇',name:'Metro Failure', desc:'Purple line stopped'},
+  {id:'festival',icon:'🎉',name:'Festival',      desc:'Mass gathering event'},
+  {id:'const',   icon:'🏗️',name:'Construction',  desc:'Ongoing road work'},
+  {id:'demand',  icon:'📈',name:'Demand Spike',  desc:'Sudden traffic surge'},
+  {id:'emergency',icon:'🚨',name:'Emergency',    desc:'City-wide emergency'},
+];
+
+const SCENARIO_IMPACTS={
+  rain:    {travel:'68 min',zones:14,co2:'620 kg/hr',throughput:'↓ 42%',econ:'₹8.4L/hr',tti:'+26 min',co2i:'+190 kg',z:'+7',econ2:'₹8.4L'},
+  accident:{travel:'74 min',zones:12,co2:'580 kg/hr',throughput:'↓ 38%',econ:'₹7.2L/hr',tti:'+32 min',co2i:'+150 kg',z:'+5',econ2:'₹7.2L'},
+  closure: {travel:'71 min',zones:13,co2:'610 kg/hr',throughput:'↓ 40%',econ:'₹7.8L/hr',tti:'+29 min',co2i:'+180 kg',z:'+6',econ2:'₹7.8L'},
+  metro:   {travel:'62 min',zones:10,co2:'520 kg/hr',throughput:'↓ 28%',econ:'₹5.6L/hr',tti:'+20 min',co2i:'+90 kg', z:'+3',econ2:'₹5.6L'},
+  festival:{travel:'58 min',zones:9, co2:'490 kg/hr',throughput:'↓ 22%',econ:'₹4.8L/hr',tti:'+16 min',co2i:'+60 kg', z:'+2',econ2:'₹4.8L'},
+  const:   {travel:'52 min',zones:8, co2:'470 kg/hr',throughput:'↓ 18%',econ:'₹4.2L/hr',tti:'+10 min',co2i:'+40 kg', z:'+1',econ2:'₹4.2L'},
+  demand:  {travel:'65 min',zones:11,co2:'540 kg/hr',throughput:'↓ 32%',econ:'₹6.2L/hr',tti:'+23 min',co2i:'+110 kg',z:'+4',econ2:'₹6.2L'},
+  emergency:{travel:'55 min',zones:9,co2:'480 kg/hr',throughput:'↓ 25%',econ:'₹5.0L/hr',tti:'+13 min',co2i:'+50 kg', z:'+2',econ2:'₹5.0L'},
+};
+
+const SIGNALS=[
+  {name:'Silk Board',    ci:.74,lanes:4,density:'High', queue:47, wait:68, efficiency:62, baseGreen:22,baseRed:45},
+  {name:'Hebbal',        ci:.82,lanes:4,density:'High', queue:38, wait:54, efficiency:71, baseGreen:28,baseRed:38},
+  {name:'Marathahalli',  ci:.75,lanes:4,density:'Med',  queue:24, wait:41, efficiency:78, baseGreen:32,baseRed:32},
+  {name:'KR Puram',      ci:.79,lanes:2,density:'High', queue:31, wait:58, efficiency:65, baseGreen:25,baseRed:40},
+  {name:'ORR @ BTM',     ci:.68,lanes:6,density:'Med',  queue:19, wait:32, efficiency:84, baseGreen:35,baseRed:28},
+  {name:'MG Road',       ci:.54,lanes:4,density:'Low',  queue:12, wait:22, efficiency:91, baseGreen:40,baseRed:22},
+];
+
+let FLEET=[
+  {id:'FK-88291',from:'Whitefield Hub',to:'Koramangala',status:'at-risk',  eta:47,aiEta:29,ci:.87,driver:'Rajan M.'},
+  {id:'FK-72104',from:'Hebbal FC',     to:'Indiranagar', status:'ontime',  eta:22,aiEta:18,ci:.62,driver:'Suresh K.'},
+  {id:'FK-59403',from:'Bommanahalli', to:'JP Nagar',     status:'ontime',  eta:31,aiEta:24,ci:.44,driver:'Priya V.'},
+  {id:'FK-61872',from:'KR Puram Hub', to:'Whitefield',   status:'at-risk', eta:54,aiEta:38,ci:.79,driver:'Amit S.'},
+  {id:'FK-44910',from:'Peenya Hub',   to:'Rajajinagar',  status:'ontime',  eta:18,aiEta:15,ci:.22,driver:'Kavya R.'},
+  {id:'FK-33771',from:'Silk Board',   to:'Electronic City',status:'at-risk',eta:62,aiEta:41,ci:.94,driver:'Mohan D.'},
+];
+const FLEET_BASE=JSON.parse(JSON.stringify(FLEET));
+
+const VEHICLES=[
+  {id:'v1',icon:'🚑',name:'Ambulance',  color:'#ff4444'},
+  {id:'v2',icon:'🚒',name:'Fire Truck', color:'#ff8c42'},
+  {id:'v3',icon:'🚔',name:'Police',     color:'#3b9eff'},
+];
+
+const AI_RECS=[
+  {title:'Reroute Silk Board Traffic', text:'CI 0.94 — divert via Bannerghatta Road. Estimated 14 min saved for 2,400+ vehicles.', priority:'HIGH'},
+  {title:'Extend Green Phase — Hebbal', text:'Queue length 47 vehicles. Increase green by 18s. Expected throughput +34%.', priority:'HIGH'},
+  {title:'Pre-emptive Rerouting — ORR', text:'CI forecast 0.89 in 30 min. Activate alternate before gridlock.', priority:'MED'},
+  {title:'Optimize FK Fleet — Zone z1', text:'9 deliveries at risk in Silk Board zone. Reroute via Sarjapur Road.', priority:'MED'},
+];
+
+const CMD_ALERTS=[
+  {title:'Critical: Accident at Silk Board',sub:'AI confidence 96% • Impact radius 2.8km',time:'08:42',color:'#ff4444'},
+  {title:'High: Road Closure — Hebbal',     sub:'Lane 2 blocked • Diversion active',     time:'07:55',color:'#ff8c42'},
+  {title:'High: Flooding — Bellandur',      sub:'CI spiking • 4km impact area',           time:'06:30',color:'#3b9eff'},
+  {title:'Moderate: Festival Traffic — MG Rd',sub:'Expected surge 10 AM',               time:'10:00',color:'#b06fff'},
+  {title:'System: Fleet at Risk',           sub:'9 deliveries may miss SLA',             time:'09:15',color:'#ffd740'},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const S={
+  zones:ZONES.map(z=>({...z})),
+  rerouteOn:false,signalsOn:false,
+  emgVehicle:null,corridorOn:false,
+  fleetOptimized:false,
+  sigsOptimized:false,
+  twinScenario:null,
+  charts:{},
+  chartsInit:{},
+  timeScale:'day',
+  refreshTimer:30,
+  heatmapOn:false,
+  wsConnected:false,
+  predCache:{},
+  aiEnabled:true,
+  adminLoggedIn:false,
+  timeline:[],
+  fleetAtRisk:9,
+  ordersInTransit:142,
+  demoPaused:false,
+  demoStep:0,
+  demoTimer:null,
+  pendingConfirm:null,
+};
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+const ciColor=ci=>ci>=.80?'#ff4444':ci>=.65?'#ff8c42':ci>=.50?'#ffd740':'#00e676';
+const ciLabel=ci=>ci>=.90?'Severe Gridlock':ci>=.80?'Gridlock':ci>=.65?'Heavy':ci>=.50?'Moderate':'Smooth';
+const PRED_DELTAS={15:.07,30:.15,60:.20};
+function getPredictions(z){
+  const n=(z.id.charCodeAt(1)%10)*0.002;
+  return{
+    p15:Math.min(.99,Math.max(.02,z.ci+PRED_DELTAS[15]+n)),
+    p30:Math.min(.99,Math.max(.02,z.ci+PRED_DELTAS[30]+n)),
+    p60:Math.min(.99,Math.max(.02,z.ci+PRED_DELTAS[60]+n)),
+    conf:Math.round(Math.min(99,88+z.ci*8+(z.id==='z1'?6:0))),
+  };
+}
+function pred(ci,min,zoneId){
+  if(zoneId){
+    const z=S.zones.find(x=>x.id===zoneId)||{ci, id:zoneId};
+    const p=getPredictions({...z,ci});
+    return p[{15:'p15',30:'p30',60:'p60'}[min]]||p.p60;
+  }
+  const t={15:.07,30:.15,60:.20};
+  return Math.min(.99,Math.max(.02,ci+t[min]));
+}
+function conf(ci,zoneId){return zoneId?getPredictions({ci,id:zoneId}).conf:Math.round(88+ci*8);}
+const riskBadge=ci=>{
+  const m={'Severe Gridlock':'#ff2222',Gridlock:'#ff4444',Heavy:'#ff8c42',Moderate:'#ffd740',Smooth:'#00e676'};
+  const l=ciLabel(ci);
+  return `<span class="tag" style="background:${m[l]}18;color:${m[l]};border:1px solid ${m[l]}40;">${l}</span>`;
+};
+const toast=(msg,type='i')=>{
+  const el=document.createElement('div');
+  el.className=`toast toast-${type}`;el.textContent=msg;
+  document.getElementById('toast-ct').appendChild(el);
+  setTimeout(()=>el.remove(),4200);
+};
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+' IST';
+}
+setInterval(tick,1000);tick();
+
+// ── NAVIGATION ────────────────────────────────────────────────────────────────
+const PANELS=['command','map','predict','incidents','twin','emergency','flipkart','signals','xai','analytics','arch','mlcenter','bizimpact','executive','roi','advantage','admin'];
+function show(name){
+  PANELS.forEach(p=>{
+    document.getElementById('panel-'+p)?.classList.toggle('active',p===name);
+    document.getElementById('tab-'+p)?.classList.toggle('active',p===name);
+    document.getElementById('nav-'+p)?.classList.toggle('active',p===name);
+  });
+  // Lazy init
+  if(name==='predict'&&!S.chartsInit.predict){initPredictCharts();S.chartsInit.predict=true;}
+  if(name==='analytics'&&!S.chartsInit.analytics){initAnalyticsCharts();S.chartsInit.analytics=true;}
+  if(name==='signals'&&!S.chartsInit.signals){initSignalsChart();S.chartsInit.signals=true;}
+  if(name==='emergency'&&!S.chartsInit.emg){initEmgChart();S.chartsInit.emg=true;}
+  if(name==='flipkart'&&!S.chartsInit.fleet){initFleetChart();S.chartsInit.fleet=true;}
+  if(name==='twin'&&!S.chartsInit.twin){initTwinChart();S.chartsInit.twin=true;}
+  if(name==='twin'&&!S.chartsInit.twinMap){initTwinMap();S.chartsInit.twinMap=true;setTimeout(()=>mapTwin&&mapTwin.invalidateSize(),200);}
+  if(name==='flipkart'&&!S.chartsInit.fleetMap){initFleetMap();S.chartsInit.fleetMap=true;setTimeout(()=>mapFleet&&mapFleet.invalidateSize(),200);}
+  if(name==='arch'){renderArch();}
+  if(name==='map'){setTimeout(()=>{map2C&&map2C.invalidateSize();mapC&&mapC.invalidateSize();},150);}
+  if(name==='command'){setTimeout(()=>{mapC&&mapC.invalidateSize();S.charts.cmdPredict&&S.charts.cmdPredict.resize();},150);}
+  if(name==='mlcenter'&&!S.chartsInit.mlcenter){initMlCenter();S.chartsInit.mlcenter=true;}
+  if(name==='bizimpact'&&!S.chartsInit.bizimpact){initBizImpact();S.chartsInit.bizimpact=true;}
+  if(name==='advantage'&&!S.chartsInit.advantage){initAdvantage();S.chartsInit.advantage=true;}
+  if(name==='roi'&&!S.chartsInit.roi){initRoiCenter();S.chartsInit.roi=true;}
+}
+
+// ── MAP INIT ──────────────────────────────────────────────────────────────────
+let mapC,map2C,mapTwin,mapFleet,markersC={},markers2={},heatmapLayer=null,twinHeatLayers=[],fleetLayers=[],incidentMarkers=[];
+const TILE='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_OPT={attribution:'© OpenStreetMap',maxZoom:18};
+
+function makeIcon(z){
+  const c=ciColor(z.ci),sz=z.ci>=.80?38:z.ci>=.50?30:24;
+  return L.divIcon({className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],
+    html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${c}20;
+      border:2px solid ${c};box-shadow:0 0 ${Math.round(z.ci*18)}px ${c}aa;
+      display:flex;align-items:center;justify-content:center;">
+      <div style="width:${Math.round(sz*.42)}px;height:${Math.round(sz*.42)}px;border-radius:50%;background:${c};"></div>
+    </div>`
+  });
+}
+
+function popupHTML(z){
+  const c=ciColor(z.ci);
+  return `<div style="min-width:190px;">
+    <div class="popup-t" style="color:${c}">${z.name}</div>
+    <div class="popup-r"><span class="popup-k">CI</span><span class="popup-v" style="color:${c}">${z.ci.toFixed(3)}</span></div>
+    <div class="popup-r"><span class="popup-k">Status</span><span class="popup-v" style="color:${c}">${ciLabel(z.ci)}</span></div>
+    <div class="popup-r"><span class="popup-k">Geohash</span><span class="popup-v">${z.geohash||'—'}</span></div>
+    <div class="popup-r"><span class="popup-k">15min Pred</span><span class="popup-v">${pred(z.ci,15,z.id).toFixed(3)}</span></div>
+    <div class="popup-r"><span class="popup-k">30min Pred</span><span class="popup-v">${pred(z.ci,30,z.id).toFixed(3)}</span></div>
+    <div class="popup-r"><span class="popup-k">60min Pred</span><span class="popup-v">${pred(z.ci,60,z.id).toFixed(3)}</span></div>
+    <div class="popup-r"><span class="popup-k">Lanes</span><span class="popup-v">${z.lanes}</span></div>
+    <div class="popup-r"><span class="popup-k">Weather</span><span class="popup-v">${z.weather}</span></div>
+  </div>`;
+}
+
+function initMaps(){
+  mapC=L.map('map',{zoomControl:true,scrollWheelZoom:true}).setView([12.97,77.59],12);
+  L.tileLayer(TILE,TILE_OPT).addTo(mapC);
+  S.zones.forEach(z=>{
+    const m=L.marker([z.lat,z.lng],{icon:makeIcon(z)}).bindPopup(popupHTML(z)).addTo(mapC);
+    markersC[z.id]={marker:m,zone:z};
+  });
+  // Incident markers
+  refreshIncidentMarkers();
+  // Alt route overlay
+  const routeMain=[[12.9175,77.6228],[12.9352,77.6500],[13.0453,77.5949]];
+  const routeAlt= [[12.9175,77.6228],[12.9500,77.5800],[12.9800,77.5700],[13.0453,77.5949]];
+  L.polyline(routeMain,{color:'#ff4444',weight:3,opacity:.5,dashArray:'8 4'}).addTo(mapC);
+  L.polyline(routeAlt, {color:'#00e676',weight:3,opacity:.4,dashArray:'6 6'}).addTo(mapC);
+
+  // map2
+  map2C=L.map('map2',{zoomControl:true,scrollWheelZoom:true}).setView([12.97,77.59],12);
+  L.tileLayer(TILE,TILE_OPT).addTo(map2C);
+  S.zones.forEach(z=>{
+    const m=L.marker([z.lat,z.lng],{icon:makeIcon(z)}).bindPopup(popupHTML(z)).addTo(map2C);
+    markers2[z.id]={marker:m,zone:z};
+  });
+  try{initCmdPredictChart();}catch(e){console.warn('Chart init:',e);}
+}
+
+function initTwinMap(){
+  if(mapTwin||!document.getElementById('twin-map'))return;
+  mapTwin=L.map('twin-map',{zoomControl:true,scrollWheelZoom:true}).setView([12.97,77.59],12);
+  L.tileLayer(TILE,TILE_OPT).addTo(mapTwin);
+}
+
+function initFleetMap(){
+  if(mapFleet||!document.getElementById('fleet-map'))return;
+  mapFleet=L.map('fleet-map',{zoomControl:true,scrollWheelZoom:true}).setView([12.95,77.62],11);
+  L.tileLayer(TILE,TILE_OPT).addTo(mapFleet);
+  const hubs=[[12.9698,77.7499,'Whitefield Hub'],[13.0289,77.5182,'Peenya Hub'],[12.9175,77.6228,'Silk Board Hub']];
+  hubs.forEach(([lat,lng,name])=>{
+    L.marker([lat,lng],{icon:L.divIcon({className:'',iconSize:[24,24],iconAnchor:[12,12],
+      html:'<div style="font-size:16px;">🏭</div>'})}).bindPopup(`<b>${name}</b>`).addTo(mapFleet);
+  });
+  FLEET.forEach(d=>{
+    const z=S.zones.find(x=>x.name.includes(d.from.split(' ')[0]))||S.zones[0];
+    const dest=S.zones.find(x=>d.to.includes(x.name.split(' ')[0]))||S.zones[11];
+    const col=d.status==='at-risk'?'#ffd740':'#00e676';
+    const line=L.polyline([[z.lat,z.lng],[dest.lat,dest.lng]],{color:col,weight:3,opacity:.7,dashArray:d.status==='at-risk'?'6 4':'none'}).addTo(mapFleet);
+    fleetLayers.push(line);
+    L.marker([(z.lat+dest.lat)/2,(z.lng+dest.lng)/2],{icon:L.divIcon({className:'',iconSize:[20,20],iconAnchor:[10,10],
+      html:`<div style="font-size:14px;">📦</div>`})}).bindPopup(`<b>${d.id}</b><br/>${d.from} → ${d.to}`).addTo(mapFleet);
+  });
+}
+
+function toggleHeatmap(){
+  S.heatmapOn=!S.heatmapOn;
+  const btn=document.getElementById('btn-heatmap');
+  if(S.heatmapOn){
+    btn.innerHTML='✅ Heatmap ON';btn.className='btn btn-green';
+    [mapC,map2C].forEach(m=>{
+      if(!m)return;
+      const group=L.layerGroup();
+      S.zones.forEach(z=>{
+        L.circle([z.lat,z.lng],{radius:z.ci*800,color:ciColor(z.ci),fillColor:ciColor(z.ci),fillOpacity:.25,weight:1}).addTo(group);
+      });
+      group.addTo(m);
+      heatmapLayer=group;
+    });
+    toast('🔥 Geohash congestion heatmap activated','s');
+  }else{
+    btn.innerHTML='🔥 Heatmap';btn.className='btn btn-orange';
+    if(heatmapLayer){[mapC,map2C].forEach(m=>m&&heatmapLayer&&m.removeLayer(heatmapLayer));heatmapLayer=null;}
+  }
+}
+
+function initCmdPredictChart(){
+  const el=document.getElementById('chart-cmd-predict');
+  if(!el||S.charts.cmdPredict)return;
+  const top=[...S.zones].sort((a,b)=>b.ci-a.ci).slice(0,3);
+  const labels=['Now','+15','+30','+45','+60'];
+  S.charts.cmdPredict=new Chart(document.getElementById('chart-cmd-predict'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:top.map((z,i)=>{
+        const p=getPredictions(z);
+        return{label:z.name.split(' ').slice(0,2).join(' '),data:[z.ci,p.p15,p.p30,(z.ci+p.p60)/2,p.p60],
+          borderColor:['#ff4444','#ff8c42','#ffd740'][i],backgroundColor:['#ff4444','#ff8c42','#ffd740'][i]+'22',
+          fill:true,tension:.4,borderWidth:2,pointRadius:3};
+      })
+    },
+    options:{...chartOpts({min:0,max:1,legend:true}),plugins:{legend:{labels:{color:'#8099b8',font:{size:9}}}}}
+  });
+}
+
+function updateCmdPredictChart(){
+  if(!S.charts.cmdPredict)return;
+  const top=[...S.zones].sort((a,b)=>b.ci-a.ci).slice(0,3);
+  S.charts.cmdPredict.data.datasets=top.map((z,i)=>{
+    const p=getPredictions(z);
+    return{label:z.name.split(' ').slice(0,2).join(' '),data:[z.ci,p.p15,p.p30,(z.ci+p.p60)/2,p.p60],
+      borderColor:['#ff4444','#ff8c42','#ffd740'][i],backgroundColor:['#ff4444','#ff8c42','#ffd740'][i]+'22',
+      fill:true,tension:.4,borderWidth:2,pointRadius:3};
+  });
+  S.charts.cmdPredict.update('none');
+}
+
+function refreshMapMarkers(){
+  [markersC,markers2].forEach(markers=>{
+    Object.values(markers).forEach(({marker,zone})=>{
+      const z=S.zones.find(z=>z.id===zone.id);
+      if(!z)return;
+      marker.setIcon(makeIcon(z));
+      marker.setPopupContent(popupHTML(z));
+      markers[zone.id].zone=z;
+    });
+  });
+  updateCmdPredictChart();
+}
+
+// ── WEBSOCKET LIVE FEED ───────────────────────────────────────────────────────
+const API_WS='ws://localhost:8000/ws/live-feed';
+function initWebSocket(){
+  const badge=document.getElementById('ws-status');
+  const dot=document.getElementById('ws-dot');
+  try{
+    const ws=new WebSocket(API_WS);
+    ws.onopen=()=>{S.wsConnected=true;badge.textContent='WS Live';dot.style.background='var(--green)';};
+    ws.onmessage=(ev)=>{
+      const data=JSON.parse(ev.data);
+      if(data.zones){
+        data.zones.forEach(az=>{
+          const z=S.zones.find(x=>x.id===az.id);
+          if(z)z.ci=az.ci;
+        });
+        refreshMapMarkers();renderZoneList();renderPredGrid();updateMapKPIs();
+      }
+    };
+    ws.onclose=()=>{S.wsConnected=false;badge.textContent='WS Sim';dot.style.background='var(--yellow)';setTimeout(initWebSocket,8000);};
+    ws.onerror=()=>{ws.close();};
+  }catch(e){
+    badge.textContent='WS Sim';
+  }
+}
+
+// ── COMMAND CENTER ────────────────────────────────────────────────────────────
+function renderCommandCenter(){
+  // Alerts
+  const alertsEl=document.getElementById('cmd-alerts-list');
+  alertsEl.innerHTML=CMD_ALERTS.map(a=>`
+    <div class="cmd-alert" style="border-left-color:${a.color}">
+      <div class="cmd-alert-dot" style="background:${a.color};box-shadow:0 0 8px ${a.color};"></div>
+      <div class="cmd-alert-body">
+        <div class="cmd-alert-title">${a.title}</div>
+        <div class="cmd-alert-sub">${a.sub}</div>
+      </div>
+      <div class="cmd-alert-time">${a.time}</div>
+    </div>`).join('');
+
+  // Predicted gridlocks
+  const predEl=document.getElementById('cmd-predicted-list');
+  const critical=S.zones.filter(z=>z.ci>=.70).sort((a,b)=>b.ci-a.ci).slice(0,4);
+  predEl.innerHTML=critical.map(z=>{
+    const p=getPredictions(z);
+    const c=ciColor(p.p60);
+    return `<div class="cmd-alert" style="border-left-color:${c}">
+      <div class="cmd-alert-dot" style="background:${c};"></div>
+      <div class="cmd-alert-body">
+        <div class="cmd-alert-title">${z.name}</div>
+        <div class="cmd-alert-sub">60min: CI ${p.p60.toFixed(2)} — ${ciLabel(p.p60)} · ${p.conf}% conf</div>
+      </div>
+      <div class="cmd-alert-time">+60min</div>
+    </div>`;
+  }).join('');
+
+  // AI Recs
+  const recsEl=document.getElementById('cmd-ai-recs');
+  recsEl.innerHTML=AI_RECS.map(r=>`
+    <div class="ai-rec-card">
+      <div class="ai-rec-title">🧠 ${r.title}</div>
+      <div class="ai-rec-text">${r.text}</div>
+      <div class="ai-rec-priority">Priority: ${r.priority}</div>
+    </div>`).join('');
+}
+
+// ── ZONE LIST ─────────────────────────────────────────────────────────────────
+function renderZoneList(){
+  const el=document.getElementById('zone-list-map');
+  const sorted=[...S.zones].sort((a,b)=>b.ci-a.ci);
+  el.innerHTML=sorted.map(z=>{
+    const c=ciColor(z.ci);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--b1);cursor:pointer;" onclick="flyTo('${z.id}')">
+      <div style="width:8px;height:8px;border-radius:50%;background:${c};box-shadow:0 0 6px ${c}88;flex-shrink:0;"></div>
+      <div style="flex:1;font-size:11px;font-weight:600;">${z.name.split(' ').slice(0,2).join(' ')}</div>
+      <div style="width:50px;height:4px;background:var(--bg5);border-radius:2px;overflow:hidden;"><div style="width:${z.ci*100}%;height:100%;background:${c};border-radius:2px;"></div></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:${c};width:34px;text-align:right;">${z.ci.toFixed(2)}</div>
+    </div>`;
+  }).join('');
+}
+
+function flyTo(id){
+  const z=S.zones.find(z=>z.id===id);
+  if(z){
+    [mapC,map2C].forEach(m=>m&&m.flyTo([z.lat,z.lng],15,{duration:1.2}));
+    markersC[id]?.marker?.openPopup();
+    show('map');
+  }
+}
+
+// ── PREDICTION ENGINE ─────────────────────────────────────────────────────────
+function renderPredGrid(){
+  const el=document.getElementById('pred-grid');
+  el.innerHTML=S.zones.map(z=>{
+    const p=getPredictions(z);
+    const trend=p.p60>z.ci?'↗':'↘';
+    const tc=p.p60>z.ci?'c-red':'c-green';
+    const rows=[
+      {label:'Current',val:z.ci,clr:ciColor(z.ci)},
+      {label:'15 min', val:p.p15, clr:ciColor(p.p15)},
+      {label:'30 min', val:p.p30, clr:ciColor(p.p30)},
+      {label:'60 min', val:p.p60, clr:ciColor(p.p60)},
+    ];
+    return `<div class="pred-card" style="${z.id==='z1'?'border-color:rgba(255,68,68,.35);box-shadow:0 0 20px rgba(255,68,68,.08);':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="pred-zone-name" style="margin:0;">${z.name}${z.id==='z1'?'<span style="font-size:9px;color:var(--text3);margin-left:6px;">'+z.geohash+'</span>':''}</div>
+        <span class="${tc}" style="font-size:16px;">${trend}</span>
+      </div>
+      ${rows.map(r=>`
+        <div class="pred-ci-row">
+          <div class="pred-ci-label">${r.label}</div>
+          <div class="pred-ci-bar"><div class="pred-ci-fill" style="width:${r.val*100}%;background:${r.clr};"></div></div>
+          <div class="pred-ci-val" style="color:${r.clr};">${r.val.toFixed(2)}</div>
+        </div>`).join('')}
+      <div class="pred-meta">
+        <span class="pred-conf">✓ ${p.conf}% confidence</span>
+        <span>${riskBadge(p.p60)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function initPredictCharts(){
+  const HOURS=Array.from({length:13},(_,i)=>`${String(8+i).padStart(2,'0')}:00`);
+  const TOP=[ZONES[0],ZONES[1],ZONES[2],ZONES[4],ZONES[3]];
+  const colors=['#ff4444','#ff8c42','#ffd740','#3b9eff','#00e676'];
+
+  S.charts.forecast=new Chart(document.getElementById('chart-forecast'),{
+    type:'line',
+    data:{
+      labels:HOURS,
+      datasets:TOP.map((z,i)=>({
+        label:z.name.split(' ')[0],
+        data:HOURS.map((_,h)=>{
+          const base=z.ci;const hour=8+h;
+          return Math.min(.99,Math.max(.05,base+(hour<10?.02*(hour-8):(hour>14?-.01*(hour-14):.04))+Math.sin(h*.6)*.04));
+        }),
+        borderColor:colors[i],backgroundColor:colors[i]+'18',fill:true,tension:.4,borderWidth:2,pointRadius:2,
+      }))
+    },
+    options:chartOpts({min:.0,max:1.0,ylabel:'Congestion Index',legend:true})
+  });
+
+  S.charts.confidence=new Chart(document.getElementById('chart-confidence'),{
+    type:'doughnut',
+    data:{
+      labels:['High (>90%)','Medium (75-90%)','Low (<75%)'],
+      datasets:[{data:[12,4,2],backgroundColor:['#00e676','#ffd740','#ff4444'],borderColor:'transparent',borderWidth:0}]
+    },
+    options:{plugins:{legend:{labels:{color:'#8099b8',font:{family:'Inter',size:11}}}}}
+  });
+  renderPredGrid();
+}
+
+// ── INCIDENTS ─────────────────────────────────────────────────────────────────
+function renderIncidents(){
+  const el=document.getElementById('incident-list');
+  el.innerHTML=INCIDENTS.map(inc=>`
+    <div class="inc-card" style="border-left-color:${inc.color};" onclick="flyToInc(${inc.lat},${inc.lng})">
+      <div class="inc-header">
+        <div class="inc-icon">${inc.icon}</div>
+        <div class="inc-title-row">
+          <div class="inc-title">${inc.type}</div>
+          <div class="inc-time">${inc.time}</div>
+        </div>
+        <div class="inc-badge" style="background:${inc.color}22;color:${inc.color};">${inc.severity}</div>
+      </div>
+      <div class="inc-row"><span class="inc-k">Location</span><span class="inc-v">${inc.location}</span></div>
+      <div class="inc-row"><span class="inc-k">AI Confidence</span><span class="inc-v" style="color:${inc.color}">${inc.conf}%</span></div>
+      <div class="inc-row"><span class="inc-k">Est. Delay</span><span class="inc-v">+${inc.delay} min</span></div>
+      <div class="inc-row"><span class="inc-k">Impact Radius</span><span class="inc-v">${inc.radius} km</span></div>
+      <div class="inc-action">${inc.action}</div>
+    </div>`).join('');
+
+  if(!S.chartsInit.incChart){
+    S.charts.incidents=new Chart(document.getElementById('chart-incidents'),{
+      type:'bar',
+      data:{
+        labels:INCIDENTS.map(i=>i.type),
+        datasets:[
+          {label:'Delay (min)',data:INCIDENTS.map(i=>i.delay),backgroundColor:INCIDENTS.map(i=>i.color+'88'),borderColor:INCIDENTS.map(i=>i.color),borderWidth:1},
+          {label:'Impact Radius (km)',data:INCIDENTS.map(i=>i.radius*10),backgroundColor:INCIDENTS.map(i=>i.color+'44'),borderColor:'transparent',borderWidth:0},
+        ]
+      },
+      options:chartOpts({legend:true})
+    });
+    S.chartsInit.incChart=true;
+  }
+}
+
+function flyToInc(lat,lng){
+  [mapC,map2C].forEach(m=>m&&m.flyTo([lat,lng],15,{duration:1.2}));
+  show('command');
+}
+
+// ── DIGITAL TWIN ──────────────────────────────────────────────────────────────
+function renderScenarios(){
+  const el=document.getElementById('scenario-grid');
+  el.innerHTML=SCENARIOS.map(s=>`
+    <div class="scenario-btn" id="sc-${s.id}" onclick="selectScenario('${s.id}')">
+      <div class="sb-icon">${s.icon}</div>
+      <div class="sb-name">${s.name}</div>
+      <div class="sb-desc">${s.desc}</div>
+    </div>`).join('');
+}
+
+let twinChart;
+function initTwinChart(){
+  twinChart=new Chart(document.getElementById('chart-twin'),{
+    type:'line',
+    data:{
+      labels:['Now','+15min','+30min','+45min','+60min'],
+      datasets:[
+        {label:'Baseline',data:[.65,.65,.65,.65,.65],borderColor:'#8099b8',borderWidth:2,pointRadius:3,tension:.3,borderDash:[6,4]},
+        {label:'Simulated',data:[.65,.65,.65,.65,.65],borderColor:'#ffd740',backgroundColor:'rgba(255,215,64,.08)',fill:true,borderWidth:2,pointRadius:3,tension:.3},
+        {label:'With AI',data:[.65,.65,.65,.65,.65],borderColor:'#00e676',backgroundColor:'rgba(0,230,118,.08)',fill:true,borderWidth:2,pointRadius:3,tension:.3},
+      ]
+    },
+    options:chartOpts({min:.0,max:1.0,ylabel:'Avg CI',legend:true})
+  });
+}
+
+function selectScenario(id){
+  S.twinScenario=id;
+  document.querySelectorAll('.scenario-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('sc-'+id)?.classList.add('active');
+
+  const imp=SCENARIO_IMPACTS[id];
+  const sc=SCENARIOS.find(s=>s.id===id);
+
+  document.getElementById('tw-travel').textContent=imp.travel;
+  document.getElementById('tw-zones').textContent=imp.zones;
+  document.getElementById('tw-co2').textContent=imp.co2;
+  document.getElementById('tw-throughput').textContent=imp.throughput;
+  document.getElementById('tw-econ').textContent=imp.econ;
+  document.getElementById('tw-tti').textContent=imp.tti;
+  document.getElementById('tw-co2i').textContent=imp.co2i;
+  document.getElementById('tw-zones2').textContent=imp.z;
+  document.getElementById('tw-econ2').textContent=imp.econ2;
+
+  // Update twin chart
+  const spread=[.65,.72,.79,.85,.89];
+  const withAI=[.65,.68,.66,.62,.58];
+  if(twinChart){
+    twinChart.data.datasets[1].data=spread;
+    twinChart.data.datasets[2].data=withAI;
+    twinChart.update();
+  }
+
+  // Twin map visualization
+  if(!mapTwin){initTwinMap();S.chartsInit.twinMap=true;}
+  twinHeatLayers.forEach(l=>mapTwin&&mapTwin.removeLayer(l));
+  twinHeatLayers=[];
+  S.zones.forEach(z=>{
+    const spread=z.ci+(id==='accident'&&z.id==='z1'?0.25:id==='rain'?0.15:0.08);
+    const ci=Math.min(.99,spread);
+    const circle=L.circle([z.lat,z.lng],{radius:ci*600,color:ciColor(ci),fillColor:ciColor(ci),fillOpacity:.3,weight:2}).addTo(mapTwin);
+    twinHeatLayers.push(circle);
+  });
+  mapTwin&&mapTwin.flyTo([12.9175,77.6228],12,{duration:1});
+
+  document.getElementById('twin-map-info').innerHTML=`
+    <div style="background:var(--bg3);border-radius:var(--r);padding:14px;border:1px solid var(--b2);">
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;">${sc.icon} ${sc.name} Scenario Active</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Congestion spread simulation — affected zones highlighted in orange on the live map.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="tag" style="background:rgba(255,68,68,.12);color:var(--red);border:1px solid rgba(255,68,68,.3);">🔴 ${imp.zones} zones affected</span>
+        <span class="tag" style="background:rgba(255,215,64,.12);color:var(--yellow);border:1px solid rgba(255,215,64,.3);">⏱️ ${imp.tti} travel increase</span>
+        <span class="tag" style="background:rgba(255,140,66,.12);color:var(--orange);border:1px solid rgba(255,140,66,.3);">🌿 ${imp.co2i} CO₂ increase</span>
+        <span class="tag" style="background:rgba(0,230,118,.12);color:var(--green);border:1px solid rgba(0,230,118,.3);">✅ AI mitigating impact</span>
+      </div>
+    </div>`;
+
+  toast(`🌐 Simulating: ${sc.name}. Congestion spread projected +${imp.tti}`, 'w');
+}
+
+// ── EMERGENCY RESPONSE ────────────────────────────────────────────────────────
+function renderVehicles(){
+  const el=document.getElementById('vehicle-cards');
+  el.innerHTML=VEHICLES.map(v=>`
+    <div class="vcard" id="vc-${v.id}" onclick="selectVehicle('${v.id}')">
+      <div class="vcard-icon">${v.icon}</div>
+      <div class="vcard-name">${v.name}</div>
+    </div>`).join('');
+}
+
+function selectVehicle(id){
+  S.emgVehicle=id;
+  const v=VEHICLES.find(v=>v.id===id);
+  document.querySelectorAll('.vcard').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('vc-'+id)?.classList.add('selected');
+  document.getElementById('emg-vehicle-name').textContent=`— ${v.name} BLR-429`;
+  renderEmgRoute(false);
+}
+
+function renderEmgRoute(active){
+  const v=VEHICLES.find(v=>v.id===S.emgVehicle)||VEHICLES[0];
+  const nodes=active?[
+    {label:'Origin: NIMHANS Hospital',detail:'Departure confirmed',color:'#ff4444',last:false},
+    {label:'Via: Silk Board Signal',  detail:'🟢 GREEN PHASE — 90s extended',color:'#00e676',last:false},
+    {label:'Via: Koramangala Clear',  detail:'🔀 Vehicles rerouted — corridor open',color:'#00d4ff',last:false},
+    {label:'Via: ORR Junction',       detail:'🟢 GREEN PHASE — priority override',color:'#00e676',last:false},
+    {label:'Destination: Accident Site',detail:`ETA: 7 min (↓ 11 min saved)`,color:'#00e676',last:true},
+  ]:[
+    {label:'Origin: NIMHANS Hospital',detail:'Awaiting activation',color:'#8099b8',last:false},
+    {label:'Via: Silk Board Junction',detail:'Default signal timing — 45s red',color:'#ff4444',last:false},
+    {label:'Via: ORR Corridor',       detail:'CI 0.87 — High congestion',color:'#ff8c42',last:false},
+    {label:'Destination: Accident Site',detail:'ETA: 18 min (congested)',color:'#ff8c42',last:true},
+  ];
+
+  const el=document.getElementById('emg-route-steps');
+  el.innerHTML=nodes.map(n=>`
+    <div class="emg-step">
+      <div class="emg-step-icon-col">
+        <div class="emg-step-dot" style="border-color:${n.color};background:${n.color}22;"></div>
+        ${!n.last?'<div class="emg-step-line"></div>':''}
+      </div>
+      <div class="emg-step-content">
+        <div class="emg-step-title" style="color:${n.color}">${n.label}</div>
+        <div class="emg-step-sub">${n.detail}</div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('emg-active').textContent=active?2:0;
+  document.getElementById('emg-eta-normal').textContent=active?'18 min':'18 min';
+  document.getElementById('emg-eta-opt').textContent=active?'7 min':'—';
+  document.getElementById('emg-saved').textContent=active?'11 min':'—';
+
+  // Signal overrides
+  const sigsEl=document.getElementById('emg-signals-display');
+  sigsEl.innerHTML=['Silk Board','Koramangala','Indiranagar','ORR @ BTM'].map((name,i)=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--b1);">
+      <div style="width:12px;height:12px;border-radius:50%;background:${active?'#00e676':'#ff4444'};box-shadow:0 0 8px ${active?'#00e676':'#ff4444'};"></div>
+      <div style="flex:1;font-size:12px;font-weight:600;">${name}</div>
+      <div style="font-size:11px;color:${active?'var(--green)':'var(--red)'};">${active?'GREEN OVERRIDE':'Default'}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;">${active?'90s':SIGNALS[i]?.baseGreen+'s'}</div>
+    </div>`).join('');
+
+  // XAI
+  document.getElementById('emg-xai').innerHTML=xaiHTML(active?[
+    {text:'Fastest path — 3.2km vs 4.8km default',val:85,ok:true},
+    {text:'Signal override reduces stops from 4 to 0',val:90,ok:true},
+    {text:'Surrounding traffic rerouted — corridor clear',val:78,ok:true},
+    {text:'Priority mode reduces ETA by 11 minutes',val:95,ok:true},
+  ]:[
+    {text:'No emergency corridor active',val:0,ok:false},
+    {text:'Default signal timing in effect',val:0,ok:false},
+  ]);
+}
+
+function activateGreenCorridor(){
+  if(!S.emgVehicle){showVehiclePrompt();return;}
+  S.corridorOn=true;
+  renderEmgRoute(true);
+  toast('🚑 GREEN CORRIDOR ACTIVATED — All signals cleared!','s');
+
+  // Draw on map
+  const corr=[[12.9175,77.6228],[12.9352,77.6245],[12.9784,77.6408],[13.0453,77.5949]];
+  [mapC,map2C].forEach(m=>m&&L.polyline(corr,{color:'#00e676',weight:5,opacity:.8,dashArray:'10 4'}).addTo(m));
+  mapC&&mapC.flyTo([12.9784,77.6408],13,{duration:1.5});
+}
+
+function showVehiclePrompt(){toast('Please select a vehicle type first.','w');}
+function resetEmergency(){S.corridorOn=false;renderEmgRoute(false);toast('↺ Emergency system reset','w');}
+
+function initEmgChart(){
+  S.charts.emg=new Chart(document.getElementById('chart-emg'),{
+    type:'bar',
+    data:{
+      labels:['Normal ETA','AI Optimized'],
+      datasets:[{
+        data:[18,7],
+        backgroundColor:['#ff444488','#00e67688'],
+        borderColor:['#ff4444','#00e676'],borderWidth:1,
+      }]
+    },
+    options:{...chartOpts({ylabel:'Minutes'}),plugins:{legend:{display:false}}}
+  });
+}
+
+// ── FLIPKART FLEET ────────────────────────────────────────────────────────────
+function renderFleet(optimized=false){
+  const el=document.getElementById('fleet-list');
+  el.innerHTML=FLEET.map(d=>{
+    const at=d.status==='at-risk';
+    const c=at?'#ffd740':'#00e676';
+    const eta=optimized?d.aiEta:d.eta;
+    const saved=d.eta-d.aiEta;
+    return `<div class="delivery-card">
+      <div class="del-icon" style="background:${c}18;color:${c};">📦</div>
+      <div class="del-meta">
+        <div class="del-id">${d.id} — ${d.driver}</div>
+        <div class="del-route">${d.from} → ${d.to}</div>
+        <div class="del-stats">
+          <div class="del-stat"><div class="del-stat-v" style="color:${at?'var(--yellow)':'var(--green)'};">${eta} min</div><div class="del-stat-l">ETA</div></div>
+          <div class="del-stat"><div class="del-stat-v c-cyan">${d.ci.toFixed(2)}</div><div class="del-stat-l">Route CI</div></div>
+          <div class="del-stat"><div class="del-stat-v" style="color:${optimized?'var(--green)':'var(--text3)'};">${optimized?'-'+saved+' min':'—'}</div><div class="del-stat-l">AI Saved</div></div>
+        </div>
+      </div>
+      <div class="del-badge" style="background:${c}18;color:${c};">${at?'At Risk':'On Time'}</div>
+    </div>`;
+  }).join('');
+}
+
+function optimizeFleet(){
+  S.fleetOptimized=true;
+  renderFleet(true);
+  document.getElementById('btn-fleet-opt').innerHTML='✅ All Routes Optimized';
+  document.getElementById('fk-saved').textContent='13 min';
+  document.getElementById('fk-ontime').textContent='141';
+  document.getElementById('fk-atrisk').textContent='1';
+  S.fleetAtRisk=1;
+  if(typeof renderAdminStats==='function')renderAdminStats();
+  toast('⚡ Flipkart Fleet AI — All 142 routes optimized!','s');
+
+  if(S.charts.fleet){
+    S.charts.fleet.data.datasets[1].data=[76,79,81,83,85,88,91,93,94];
+    S.charts.fleet.update();
+  }
+}
+
+function initFleetChart(){
+  S.charts.fleet=new Chart(document.getElementById('chart-fleet'),{
+    type:'line',
+    data:{
+      labels:['6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM'],
+      datasets:[
+        {label:'Baseline On-Time %',data:[80,74,68,64,66,70,75,78,80],borderColor:'#ff8c42',borderDash:[5,4],fill:false,tension:.4,borderWidth:2,pointRadius:2},
+        {label:'AI Optimized %',    data:[80,82,81,80,81,82,84,86,88],borderColor:'#00e676',fill:true,backgroundColor:'rgba(0,230,118,.08)',tension:.4,borderWidth:2,pointRadius:2},
+      ]
+    },
+    options:chartOpts({min:60,max:100,ylabel:'On-Time Rate (%)',legend:true})
+  });
+}
+
+// ── SIGNALS ───────────────────────────────────────────────────────────────────
+function renderSignalsGrid(opt=false){
+  const el=document.getElementById('signals-grid');
+  el.innerHTML=SIGNALS.map(s=>{
+    const optGreen=Math.min(75,Math.round(s.baseGreen*(1+s.ci*1.4)*(s.lanes/3)));
+    const optRed  =Math.max(10,Math.round(s.baseRed  *(1-s.ci*.55)));
+    const green=opt?optGreen:s.baseGreen;
+    const red  =opt?optRed  :s.baseRed;
+    const optWait=opt?Math.max(8,Math.round(s.wait*(1-s.ci*.35))):s.wait;
+    const optEff=opt?Math.min(99,Math.round(s.efficiency+s.ci*22)):s.efficiency;
+    const gain =Math.round((optGreen-s.baseGreen)/s.baseGreen*100);
+    const lc   =opt?'sig-green':'sig-red';
+    const eff  =opt?'+'+gain+'%':'Baseline';
+    return `<div class="sig-junction-card ${opt?'optimized':''}">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+        <div class="signal-board" style="padding:10px;gap:4px;">
+          <div class="sig-light ${opt?'sig-green':'sig-off'}"></div>
+          <div class="sig-light ${opt?'sig-off':'sig-yellow'}"></div>
+          <div class="sig-light ${opt?'sig-off':'sig-red'}"></div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;">${s.name}</div>
+          <div style="font-size:10px;color:var(--text3);">CI: ${s.ci} · ${s.lanes} lanes · ${s.density} density</div>
+          <div style="font-size:10px;color:${opt?'var(--green)':'var(--text3)'};" class="gain-label">${opt?'✓ Optimized':'Default'}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px;">
+        <div style="text-align:center;background:var(--bg5);border-radius:6px;padding:6px;">
+          <div style="font-size:14px;font-weight:800;color:var(--yellow);font-family:'JetBrains Mono',monospace;">${s.queue}</div>
+          <div style="font-size:8px;color:var(--text3);">Queue</div>
+        </div>
+        <div style="text-align:center;background:var(--bg5);border-radius:6px;padding:6px;">
+          <div style="font-size:14px;font-weight:800;color:var(--cyan);font-family:'JetBrains Mono',monospace;">${s.density==='High'?'0.82':s.density==='Med'?'0.54':'0.31'}</div>
+          <div style="font-size:8px;color:var(--text3);">Density</div>
+        </div>
+        <div style="text-align:center;background:var(--bg5);border-radius:6px;padding:6px;">
+          <div style="font-size:14px;font-weight:800;color:var(--orange);font-family:'JetBrains Mono',monospace;">${optWait}s</div>
+          <div style="font-size:8px;color:var(--text3);">Wait</div>
+        </div>
+        <div style="text-align:center;background:var(--bg5);border-radius:6px;padding:6px;">
+          <div style="font-size:14px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace;">${optEff}%</div>
+          <div style="font-size:8px;color:var(--text3);">Efficiency</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div style="text-align:center;background:rgba(0,230,118,.08);border-radius:6px;padding:8px;">
+          <div style="font-size:18px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace;">${green}s</div>
+          <div style="font-size:9px;color:var(--text3);">GREEN phase</div>
+        </div>
+        <div style="text-align:center;background:rgba(255,68,68,.08);border-radius:6px;padding:8px;">
+          <div style="font-size:18px;font-weight:800;color:var(--red);font-family:'JetBrains Mono',monospace;">${red}s</div>
+          <div style="font-size:9px;color:var(--text3);">RED phase</div>
+        </div>
+      </div>
+      <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:11px;">
+        <span style="color:var(--text3);">Throughput gain</span>
+        <span style="color:${opt?'var(--green)':'var(--text3)'};font-weight:700;">${eff}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function optimizeSignals(){
+  S.sigsOptimized=true;
+  renderSignalsGrid(true);
+  document.getElementById('sig-opt-count').textContent='6';
+  document.getElementById('sig-wait-red').textContent='-22s';
+  document.getElementById('sig-throughput').textContent='+31%';
+  document.getElementById('btn-optimize-sigs').innerHTML='✅ All Signals Optimized';
+
+  document.getElementById('sig-xai-content').innerHTML=`
+    <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px;">Algorithm B — Reasoning</div>
+    ${xaiHTML([
+      {text:'Queue length 47+ vehicles at Silk Board',val:88,ok:true},
+      {text:'CI 0.94 exceeds critical threshold',val:95,ok:true},
+      {text:'Lane capacity: 4 lanes — medium capacity',val:72,ok:true},
+      {text:'Adjacent zones CI dropping — window available',val:65,ok:true},
+      {text:'Weather: Sunny — no adverse conditions',val:80,ok:true},
+    ])}`;
+
+  toast('🚦 Smart Signal Coordinator — 6 junctions optimized!','s');
+}
+
+function resetSignals(){
+  S.sigsOptimized=false;
+  renderSignalsGrid(false);
+  document.getElementById('sig-opt-count').textContent='0';
+  document.getElementById('sig-wait-red').textContent='—';
+  document.getElementById('sig-throughput').textContent='—';
+  document.getElementById('btn-optimize-sigs').innerHTML='⚡ Optimize All';
+  document.getElementById('sig-xai-content').innerHTML='<div style="font-size:12px;color:var(--text2);">Click "Optimize All" to see AI reasoning for each junction.</div>';
+}
+
+function initSignalsChart(){
+  S.charts.signals=new Chart(document.getElementById('chart-signals'),{
+    type:'bar',
+    data:{
+      labels:SIGNALS.map(s=>s.name),
+      datasets:[
+        {label:'Default Green (s)',data:SIGNALS.map(s=>s.baseGreen),backgroundColor:'rgba(255,68,68,.5)',borderColor:'#ff4444',borderWidth:1},
+        {label:'Optimized Green (s)',data:SIGNALS.map(s=>Math.min(75,Math.round(s.baseGreen*(1+s.ci*1.4)*(s.lanes/3)))),backgroundColor:'rgba(0,230,118,.5)',borderColor:'#00e676',borderWidth:1},
+      ]
+    },
+    options:chartOpts({legend:true,ylabel:'Seconds'})
+  });
+}
+
+// ── EXPLAINABLE AI ─────────────────────────────────────────────────────────────
+function xaiHTML(reasons){
+  return reasons.map(r=>`
+    <div class="xai-reason">
+      <div class="xai-check ${r.ok?'xai-check-yes':'xai-check-no'}">${r.ok?'✓':'✗'}</div>
+      <div style="flex:1;font-size:12px;">${r.text}</div>
+      ${r.val>0?`<div class="xai-bar"><div class="xai-bar-fill" style="width:${r.val}%;background:${r.ok?'var(--green)':'var(--red)'};"></div></div>
+      <div class="xai-val" style="color:${r.ok?'var(--green)':'var(--red)'};">${r.val}%</div>`:''}
+    </div>`).join('');
+}
+
+function renderXAI(){
+  document.getElementById('xai-rerouting').innerHTML=`
+    <div class="xai-title">🔀 Rerouting Decision — Confidence: <span class="c-green">94%</span></div>
+    ${xaiHTML([
+      {text:'22% lower congestion on alternate route',val:92,ok:true},
+      {text:'14 minutes faster than current path',val:88,ok:true},
+      {text:'Avoids accident zone at Silk Board',val:96,ok:true},
+      {text:'18% lower fuel consumption estimated',val:75,ok:true},
+      {text:'Higher route reliability score (0.89)',val:89,ok:true},
+      {text:'Weather conditions: Sunny — clear path',val:80,ok:true},
+    ])}`;
+
+  document.getElementById('xai-signals').innerHTML=`
+    <div class="xai-title">🚦 Signal Optimization — Confidence: <span class="c-green">91%</span></div>
+    ${xaiHTML([
+      {text:'Queue length increased to 47 vehicles',val:88,ok:true},
+      {text:'Demand spike detected — CI rose 0.08',val:82,ok:true},
+      {text:'4-lane road — high throughput capacity',val:76,ok:true},
+      {text:'Adjacent junction CI dropping — chain effect',val:70,ok:true},
+      {text:'Expected throughput gain: +34%',val:91,ok:true},
+    ])}`;
+
+  document.getElementById('xai-fleet').innerHTML=`
+    <div class="xai-title">📦 Fleet Route Decision — Confidence: <span class="c-green">88%</span></div>
+    ${xaiHTML([
+      {text:'Current route CI 0.87 — Heavy congestion',val:87,ok:false},
+      {text:'Alternate via Sarjapur Road CI 0.44',val:82,ok:true},
+      {text:'Delivery deadline in 29 minutes — urgent',val:95,ok:true},
+      {text:'Fuel saving: ₹42 on alternate route',val:68,ok:true},
+      {text:'Customer SLA: 94% on-time maintained',val:94,ok:true},
+    ])}`;
+
+  document.getElementById('xai-emg').innerHTML=`
+    <div class="xai-title">🚑 Green Corridor — Confidence: <span class="c-green">97%</span></div>
+    ${xaiHTML([
+      {text:'Life-critical emergency — maximum priority',val:99,ok:true},
+      {text:'Signal override reduces stops from 4 to 0',val:96,ok:true},
+      {text:'3.2km corridor cleared in 45 seconds',val:91,ok:true},
+      {text:'Surrounding vehicles rerouted — 1.8km radius',val:85,ok:true},
+      {text:'ETA reduced from 18 min to 7 min',val:97,ok:true},
+    ])}`;
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────────────────────────
+const AN_DATA={
+  day:{
+    labels:Array.from({length:24},(_,i)=>`${String(i).padStart(2,'0')}h`),
+    travel:Array.from({length:24},(_,i)=>Math.max(0,Math.round(620*Math.sin((i-6)*Math.PI/12)))),
+    co2:Array.from({length:24},(_,i)=>Math.max(0,Math.round(200*Math.sin((i-7)*Math.PI/11)))),
+    delivery:Array.from({length:24},(_,i)=>Math.min(35,Math.max(0,Math.round(28*Math.sin((i-8)*Math.PI/10))))),
+    econ:Array.from({length:24},(_,i)=>Math.max(0,parseFloat((8.2*Math.sin((i-7)*Math.PI/11)).toFixed(1)))),
+  },
+  week:{
+    labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    travel:[98200,102400,99800,104200,112600,68400,54200],
+    co2:[3200,3480,3350,3620,4100,2100,1850],
+    delivery:[28,31,29,33,38,22,18],
+    econ:[56.4,58.8,57.2,60.1,64.8,42.2,38.6],
+  },
+  month:{
+    labels:Array.from({length:30},(_,i)=>`D${i+1}`),
+    travel:Array.from({length:30},()=>Math.round(95000+Math.random()*20000)),
+    co2:Array.from({length:30},()=>Math.round(3200+Math.random()*800)),
+    delivery:Array.from({length:30},()=>Math.round(26+Math.random()*10)),
+    econ:Array.from({length:30},()=>parseFloat((52+Math.random()*16).toFixed(1))),
+  },
+  year:{
+    labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    travel:[892000,920000,945000,978000,1020000,1050000,1080000,1060000,990000,960000,940000,920000],
+    co2:[96000,99200,102000,105600,110400,115200,118800,116400,108000,104800,102400,100000],
+    delivery:[28,29,30,31,32,33,34,33,32,31,30,29],
+    econ:[520,548,572,598,624,648,672,656,608,584,568,552],
+  },
+};
+
+let anCharts={};
+function initAnalyticsCharts(){
+  const cfg=(canvasId,label,color,data)=>({
+    canvas:canvasId,
+    type:'line',
+    datasets:[{
+      label,data,borderColor:color,
+      backgroundColor:color+'18',fill:true,tension:.4,borderWidth:2,pointRadius:1,
+    }]
+  });
+
+  const d=AN_DATA.day;
+  const make=(id,label,data,color)=>{
+    const c=new Chart(document.getElementById(id),{
+      type:'line',
+      data:{labels:d.labels,datasets:[{label,data,borderColor:color,backgroundColor:color+'18',fill:true,tension:.4,borderWidth:2,pointRadius:1}]},
+      options:chartOpts({legend:false})
+    });
+    anCharts[id]=c;return c;
+  };
+  make('chart-an-travel','ETT Saved (min)',d.travel,'#00e676');
+  make('chart-an-co2','CO₂ Reduced (kg)',d.co2,'#3b9eff');
+  make('chart-an-delivery','Delivery Gain (%)',d.delivery,'#ffd740');
+  make('chart-an-econ','Economic Savings (₹L)',d.econ,'#00d4ff');
+}
+
+function setTimeScale(scale){
+  S.timeScale=scale;
+  ['day','week','month','year'].forEach(s=>{
+    const btn=document.getElementById('scale-'+s);
+    if(btn){btn.className='btn '+(s===scale?'btn-blue':'');if(s!==scale)btn.style='background:var(--bg3);border-color:var(--b2);color:var(--text2);';}
+  });
+  const d=AN_DATA[scale]||AN_DATA.day;
+  ['chart-an-travel','chart-an-co2','chart-an-delivery','chart-an-econ'].forEach((id,i)=>{
+    const c=anCharts[id];if(!c)return;
+    const keys=['travel','co2','delivery','econ'];
+    c.data.labels=d.labels;
+    c.data.datasets[0].data=d[keys[i]];
+    c.update();
+  });
+}
+
+// ── ARCHITECTURE ──────────────────────────────────────────────────────────────
+function renderArch(){
+  if(S.chartsInit.arch)return;S.chartsInit.arch=true;
+  const layers=[
+    {title:'Traffic Sensors & IoT Layer',sub:'CCTV · Loop Detectors · GPS Probes · Weather API',color:var_('--blue')},
+    {title:'Geohash Aggregation Engine',sub:'Spatial clustering · Zone boundary detection · qp-geohash grid',color:var_('--cyan')},
+    {title:'Feature Engineering Pipeline',sub:'CI computation · Temporal features · Weather encoding · Road attributes',color:var_('--cyan')},
+    {title:'ML Prediction Engine',sub:'LSTM (60min forecast) · XGBoost (demand) · GNN (network effects)',color:var_('--violet')},
+    {title:'Incident Detection System',sub:'Anomaly detection · NLP event parsing · Sensor fusion · Alert triage',color:var_('--orange')},
+    {title:'Decision Intelligence Layer',sub:'Rule engine + RL policy · Constraint solver · Priority queue',color:var_('--violet')},
+  ];
+  const branches=[
+    [{title:'Signal Optimization',sub:'Algorithm B',color:'#00e676'},{title:'Rerouting Engine',sub:'Algorithm A',color:'#00d4ff'},{title:'Emergency Response',sub:'Green Corridor',color:'#ff4444'}],
+  ];
+  const bottom=[
+    {title:'Flipkart Logistics Engine',sub:'Fleet AI · Last-mile · ETA prediction',color:var_('--yellow')},
+    {title:'Analytics & Reporting',sub:'KPI dashboards · Impact metrics · Projections',color:var_('--blue')},
+    {title:'Command Dashboard',sub:'Real-time UI · WebSocket feed · Alerts',color:var_('--green')},
+  ];
+
+  const el=document.getElementById('arch-flow');
+  let html='';
+  layers.forEach(l=>{
+    html+=`<div class="arch-layer" style="border-color:${l.color}33;">
+      <div class="arch-layer-title" style="color:${l.color}">${l.title}</div>
+      <div class="arch-layer-sub">${l.sub}</div>
+    </div>
+    <div class="arch-arrow"></div><div class="arch-arrow-head"></div><div class="arch-arrow"></div>`;
+  });
+  // Branch
+  html+=`<div class="arch-branch">
+    ${[{title:'Signal Optimizer',sub:'Alg B',c:'#00e676'},{title:'Rerouting Engine',sub:'Alg A',c:'#00d4ff'},{title:'Emergency AI',sub:'Green Corridor',c:'#ff4444'}]
+      .map(b=>`<div class="arch-branch-node" style="border-color:${b.c}33;color:${b.c}">${b.title}<br/><span style="font-size:9px;color:var(--text3);">${b.sub}</span></div>`).join('')}
+  </div>
+  <div class="arch-arrow" style="margin-top:6px;"></div><div class="arch-arrow-head"></div><div class="arch-arrow"></div>
+  <div class="arch-branch">
+    ${bottom.map(b=>`<div class="arch-branch-node" style="border-color:${b.color}33;color:${b.color}">${b.title}<br/><span style="font-size:9px;color:var(--text3);">${b.sub}</span></div>`).join('')}
+  </div>`;
+
+  el.innerHTML=html;
+}
+function var_(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+// ── CHART HELPER ──────────────────────────────────────────────────────────────
+function chartOpts({min,max,ylabel,legend=false}={}){
+  return{
+    responsive:true,
+    plugins:{legend:legend?{labels:{color:'#8099b8',font:{family:'Inter',size:10}}}:{display:false}},
+    scales:{
+      x:{ticks:{color:'#4a6280',font:{size:10}},grid:{color:'rgba(99,179,255,.04)'}},
+      y:{
+        min,max,
+        ticks:{color:'#4a6280',font:{size:10}},
+        grid:{color:'rgba(99,179,255,.04)'},
+        title:ylabel?{display:true,text:ylabel,color:'#4a6280',font:{size:10}}:undefined,
+      }
+    }
+  };
+}
+
+// ── KPI PROVENANCE (ENTERPRISE METADATA) ──────────────────────────────────────
+function metaTime(){return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' IST';}
+function renderMeta(elId,{model,source,method,conf}){
+  const el=document.getElementById(elId);if(!el)return;
+  el.className='kpi-meta';
+  el.innerHTML=`<div class="kpi-meta-row"><span>Model: ${model}</span><span>Conf: ${conf}%</span></div>
+    <div class="kpi-meta-row"><span>Source: ${source}</span><span>Updated: ${metaTime()}</span></div>
+    <div>Method: ${method}</div>`;
+}
+function initAllMeta(){
+  const metas=[
+    {id:'meta-ml-acc',model:'LSTM v2.1 + Ensemble',source:'Historical + Real-Time Feed',method:'Rolling 60-min MAE validation',conf:94.2},
+    {id:'meta-ml-models',model:'Model Registry v3',source:'MLflow Pipeline',method:'Cross-validated on 71K samples',conf:96.1},
+    {id:'meta-ml-train',model:'XGBoost + LSTM',source:'train.csv + sensor ingest',method:'Geohash aggregation + feature store',conf:91.8},
+    {id:'meta-ml-lat',model:'ONNX Runtime',source:'Edge inference node',method:'P99 latency monitoring',conf:99.2},
+    {id:'meta-biz-rev',model:'Fleet ROI Engine',source:'Flipkart SLA + order data',method:'Penalty avoidance projection',conf:92.4},
+    {id:'meta-biz-late',model:'ETA Predictor DNN',source:'142 active deliveries',method:'At-risk order classification',conf:88.7},
+    {id:'meta-biz-csat',model:'Customer Impact Model',source:'NPS survey correlation',method:'Delivery time → satisfaction mapping',conf:85.3},
+    {id:'meta-biz-fleet',model:'Route Optimizer GNN',source:'GPS fleet telemetry',method:'Hub-to-customer path optimization',conf:93.1},
+    {id:'meta-biz-wh',model:'Throughput Forecaster',source:'FC dispatch logs',method:'Peak-hour capacity modeling',conf:87.6},
+    {id:'meta-biz-dsr',model:'SLA Compliance Engine',source:'Order fulfillment API',method:'Before/after A/B on 142 routes',conf:94.8},
+    {id:'meta-biz-fuel',model:'Fuel Efficiency RF',source:'Vehicle telematics',method:'Route distance × congestion factor',conf:90.2},
+    {id:'meta-biz-cost',model:'Total Cost Optimizer',source:'Ops + fuel + penalty data',method:'Multi-factor cost aggregation',conf:91.5},
+    {id:'meta-cmd-alerts',model:'Incident Fusion Engine',source:'8 active incident feeds',method:'Real-time alert aggregation',conf:96.0},
+    {id:'meta-cmd-crit',model:'LSTM Forecasting',source:'18 geohash zones',method:'CI threshold breach detection',conf:94.2},
+    {id:'meta-cmd-int',model:'Decision Intelligence',source:'Reroute + Signal + Fleet APIs',method:'Intervention event counter',conf:93.5},
+    {id:'meta-cmd-fleet',model:'Flipkart Fleet Tracker',source:'GPS telematics + order API',method:'Active vehicle geolocation',conf:99.1},
+    {id:'meta-cmd-ett',model:'Impact Analytics',source:'Citizen + fleet + emergency data',method:'ETT delta aggregation',conf:92.4},
+  ];
+  metas.forEach(m=>renderMeta(m.id,m));
+}
+
+// ── AI OPERATIONS COPILOT ───────────────────────────────────────────────────────
+const COPILOT_CHIPS=[
+  'Why is Silk Board congested?','Zones congested in 30 min?','Max disruption incident?',
+  'Flipkart deliveries at risk?','Fastest ambulance route?','CO₂ saved today?',
+];
+function toggleCopilot(){
+  const p=document.getElementById('copilot-panel');
+  p.classList.toggle('open');
+  if(p.classList.contains('open')&&document.getElementById('copilot-msgs').children.length===0){
+    addCopilotMsg('bot','Hello. I am the Gridlock 2.0 Operations Copilot. I have access to live traffic, incident, fleet, and analytics data across Bengaluru. How can I assist?');
+  }
+}
+function addCopilotMsg(role,text,insight){
+  const el=document.createElement('div');
+  el.className='copilot-msg '+role;
+  el.innerHTML=text+(insight?`<div class="copilot-insight">${insight}</div>`:'');
+  document.getElementById('copilot-msgs').appendChild(el);
+  el.parentElement.scrollTop=el.parentElement.scrollHeight;
+}
+function sendCopilot(q){
+  const input=document.getElementById('copilot-input');
+  const question=(q||input.value||'').trim();if(!question)return;
+  addCopilotMsg('user',question);
+  input.value='';
+  setTimeout(()=>addCopilotMsg('bot',...copilotRespond(question)),400);
+}
+function copilotRespond(q){
+  const ql=q.toLowerCase();
+  const silk=S.zones.find(z=>z.id==='z1');
+  const sp=getPredictions(silk);
+  const topInc=[...INCIDENTS].sort((a,b)=>b.delay-a.delay)[0];
+  const atRisk=FLEET.filter(d=>d.status==='at-risk').length;
+
+  if(ql.includes('silk board')&&(ql.includes('congest')||ql.includes('why'))){
+    return [`<strong>Silk Board Congestion Analysis</strong><br/><br/>
+      Current CI: <strong>${silk.ci.toFixed(2)}</strong> (${ciLabel(silk.ci)})<br/>
+      Primary causes: ${INCIDENTS[0].type} (96% conf), ORR spillover, peak-hour demand.<br/>
+      4-lane capacity at ${Math.round(silk.ci*100)}% utilization. Weather: ${silk.weather}.`,
+      `Model: LSTM v2.1 · Conf: 94.2% · Updated: ${metaTime()}`];
+  }
+  if(ql.includes('30 min')||ql.includes('next 30')){
+    const rising=S.zones.map(z=>{const p=getPredictions(z);return {...z,p60:p.p60};}).filter(z=>z.p60>=.65).sort((a,b)=>b.p60-a.p60).slice(0,5);
+    return [`<strong>30-Minute Congestion Forecast</strong><br/><br/>`+
+      rising.map(z=>`• ${z.name}: CI ${z.ci.toFixed(2)} → ${getPredictions(z).p30.toFixed(2)} (${ciLabel(getPredictions(z).p30)})`).join('<br/>'),
+      `5 zones at elevated risk · Model: LSTM · Conf: 91.4%`];
+  }
+  if(ql.includes('incident')||ql.includes('disruption')){
+    return [`<strong>Maximum Disruption: ${topInc.type}</strong><br/><br/>
+      Location: ${topInc.location}<br/>Severity: ${topInc.severity} · Confidence: ${topInc.conf}%<br/>
+      Est. Delay: +${topInc.delay} min · Impact Radius: ${topInc.radius} km<br/>
+      Action: ${topInc.action}`,
+      `Detection: Anomaly Fusion Engine · Conf: ${topInc.conf}%`];
+  }
+  if(ql.includes('high-risk')||ql.includes('corridor')){
+    const crit=S.zones.filter(z=>getPredictions(z).p60>=.75).sort((a,b)=>getPredictions(b).p60-getPredictions(a).p60);
+    return [`<strong>High-Risk Corridors (60-min)</strong><br/><br/>`+
+      crit.slice(0,5).map(z=>`• ${z.name} — CI forecast ${getPredictions(z).p60.toFixed(2)} (${ciLabel(getPredictions(z).p60)})`).join('<br/>'),
+      `Geohash cluster analysis · ${crit.length} zones flagged`];
+  }
+  if(ql.includes('flipkart')||ql.includes('deliver')&&ql.includes('risk')){
+    return [`<strong>Flipkart Deliveries at Risk</strong><br/><br/>
+      Orders in transit: <strong>142</strong><br/>At risk (delay &gt;15 min): <strong>${atRisk}</strong><br/>
+      Affected: ${FLEET.filter(d=>d.status==='at-risk').map(d=>d.id).join(', ')}<br/>
+      Recommended: Reroute via Sarjapur Road (CI 0.44).`,
+      `Fleet AI · SLA Protected: 133/142 · Conf: 93.1%`];
+  }
+  if(ql.includes('delay')||ql.includes('how many order')){
+    return [`<strong>Delay Prediction</strong><br/><br/>
+      Expected delays: <strong>${atRisk} orders</strong> without intervention.<br/>
+      With AI optimization: <strong>1 order</strong> at risk.<br/>
+      Avg time saved: <strong>13 min/delivery</strong>.`,
+      `ETA Predictor DNN · Conf: 88.7% · Updated: ${metaTime()}`];
+  }
+  if(ql.includes('route')&&ql.includes('optim')){
+    return [`<strong>Route Optimization Recommendation</strong><br/><br/>
+      Priority: Silk Board zone (CI 0.94) — reroute via Bannerghatta Rd.<br/>
+      Fleet batch: 9 at-risk orders → Sarjapur bypass.<br/>
+      Expected improvement: 31% fleet efficiency, ₹2.4L fuel/day.`,
+      `GNN Route Optimizer · Conf: 93.1%`];
+  }
+  if(ql.includes('ambulance')||ql.includes('fastest')){
+    return [`<strong>Fastest Ambulance Route</strong><br/><br/>
+      Origin: NIMHANS Hospital → Accident Site (Silk Board)<br/>
+      Normal ETA: <strong>18 min</strong> · Optimized: <strong>7 min</strong><br/>
+      Path: Koramangala clear corridor → ORR priority lane.<br/>
+      Time saved: <strong>11 minutes</strong> (life-critical).`,
+      `Green Corridor AI · Conf: 97% · Graph routing (NetworkX)`];
+  }
+  if(ql.includes('time saved')||ql.includes('how much time')){
+    return [`<strong>Time Saved — Emergency Response</strong><br/><br/>
+      Ambulance ETA reduction: <strong>11 min</strong> (61% improvement)<br/>
+      Signal stops eliminated: 4 → 0<br/>
+      Surrounding vehicles rerouted: 1.8 km radius`,
+      `Emergency Response Engine · Conf: 97%`];
+  }
+  if(ql.includes('signal')&&ql.includes('override')){
+    return [`<strong>Signals Overridden</strong><br/><br/>
+      Silk Board: GREEN 90s (was 22s)<br/>Koramangala: GREEN OVERRIDE<br/>
+      Indiranagar: GREEN OVERRIDE<br/>ORR @ BTM: GREEN 90s<br/>
+      Total: <strong>4 junctions</strong> in green corridor mode.`,
+      `Algorithm B · Conf: 91% · Updated: ${metaTime()}`];
+  }
+  if(ql.includes('co₂')||ql.includes('co2')){
+    return [`<strong>CO₂ Impact Today</strong><br/><br/>
+      Avoided emissions: <strong>4.8 tons</strong> (≡ 240 trees)<br/>
+      Idle time reduction: 14,820 vehicle-minutes<br/>
+      Yearly projection: <strong>1,752 tons</strong> avoided.`,
+      `Emissions Model · Source: Traffic + Fleet telemetry · Conf: 89.3%`];
+  }
+  if(ql.includes('economic')||ql.includes('impact')){
+    return [`<strong>Economic Impact Prevented</strong><br/><br/>
+      Daily productivity gain: <strong>₹18.6L</strong><br/>
+      Flipkart revenue protected: <strong>₹18.6L/day</strong><br/>
+      Fuel savings: <strong>₹2.4L/day</strong> · Total cost savings: <strong>₹4.8L/day</strong>`,
+      `Impact Analytics · Conf: 92.4% · Method: Multi-factor ROI model`];
+  }
+  if(ql.includes('biggest')||ql.includes('intervention')){
+    return [`<strong>Biggest AI Intervention Today</strong><br/><br/>
+      Dynamic rerouting at Silk Board — <strong>2,847 vehicles</strong> diverted.<br/>
+      ETT saved: 14 min/vehicle avg · Throughput gain: +31%.<br/>
+      Triggered by accident detection (96% confidence).`,
+      `Decision Intelligence Layer · Conf: 94% · ${metaTime()}`];
+  }
+  return [`<strong>Gridlock 2.0 Intelligence</strong><br/><br/>
+    I can answer questions about traffic, incidents, Flipkart logistics, emergency routing, and analytics.<br/>
+    Try: "Why is Silk Board congested?" or "Which deliveries are at risk?"`,
+    `Copilot v1 · Connected to 18 zones · ${INCIDENTS.length} incidents live`];
+}
+
+// ── ML CENTER ─────────────────────────────────────────────────────────────────
+function initMlCenter(){
+  const features=['Historical Demand','Road Type','Lane Count','Weather','Time of Day','Vehicle Density','Incident Count','Special Events'];
+  document.getElementById('ml-features').innerHTML=features.map(f=>`<div class="feature-pill">${f}</div>`).join('');
+  const pipeline=['Data Collection','Feature Engineering','Training Dataset','Model Training','Prediction Engine','Decision Layer','Optimization Engine'];
+  document.getElementById('ml-pipeline').innerHTML=pipeline.map((p,i)=>`
+    ${i?'<div class="ml-arrow"></div>':''}<div class="ml-node"><div class="ml-node-title">${p}</div><div class="ml-node-sub">${['Sensors · GPS · Weather API','Geohash · temporal · encoding','71,402 samples · train.csv','LSTM · XGB · GNN ensemble','15/30/60 min CI forecast','Rule engine + RL policy','Signal · Route · Fleet · Emergency'][i]}</div></div>`
+  ).join('');
+  const metrics=[{l:'MAE',v:'0.062',c:'var(--green)'},{l:'RMSE',v:'0.084',c:'var(--cyan)'},{l:'Precision',v:'0.91',c:'var(--blue)'},{l:'Recall',v:'0.88',c:'var(--yellow)'},{l:'F1 Score',v:'0.895',c:'var(--violet)'},{l:'Accuracy',v:'94.2%',c:'var(--green)'}];
+  document.getElementById('ml-metrics').innerHTML=metrics.map(m=>`<div class="metric-box"><div class="metric-box-v" style="color:${m.c}">${m.v}</div><div class="metric-box-l">${m.l}</div></div>`).join('');
+  initAllMeta();
+  S.charts.mlAcc=new Chart(document.getElementById('chart-ml-acc'),{
+    type:'line',
+    data:{labels:['W1','W2','W3','W4','W5','W6'],datasets:[
+      {label:'LSTM Accuracy %',data:[91.2,92.1,92.8,93.4,93.9,94.2],borderColor:'#00e676',backgroundColor:'rgba(0,230,118,.1)',fill:true,tension:.4,borderWidth:2},
+      {label:'XGB Demand MAE',data:[.082,.078,.074,.068,.065,.062],borderColor:'#3b9eff',borderDash:[4,4],tension:.4,borderWidth:2,yAxisID:'y1'},
+    ]},
+    options:{...chartOpts({legend:true}),scales:{x:{ticks:{color:'#4a6280'},grid:{color:'rgba(99,179,255,.04)'}},y:{min:90,max:100,ticks:{color:'#4a6280'},grid:{color:'rgba(99,179,255,.04)'}},y1:{position:'right',min:0,max:.1,ticks:{color:'#4a6280'},grid:{display:false}}}}
+  });
+}
+
+// ── BUSINESS IMPACT ─────────────────────────────────────────────────────────────
+function initBizImpact(){
+  initAllMeta();
+  S.charts.bizDel=new Chart(document.getElementById('chart-biz-delivery'),{
+    type:'bar',data:{labels:['On-Time %','Success Rate','SLA Met','At Risk %'],datasets:[
+      {label:'Before AI',data:[93.7,91.2,92.1,6.3],backgroundColor:'rgba(255,140,66,.6)',borderColor:'#ff8c42',borderWidth:1},
+      {label:'After AI',data:[99.4,97.8,98.6,0.6],backgroundColor:'rgba(0,230,118,.6)',borderColor:'#00e676',borderWidth:1},
+    ]},options:chartOpts({legend:true,ylabel:'%'})
+  });
+  S.charts.bizRev=new Chart(document.getElementById('chart-biz-revenue'),{
+    type:'line',data:{labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],datasets:[
+      {label:'Revenue Protected (₹L)',data:[16.2,17.8,18.1,18.6,19.2,14.4,12.8],borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.1)',fill:true,tension:.4,borderWidth:2},
+    ]},options:chartOpts({legend:false,ylabel:'₹ Lakhs'})
+  });
+}
+
+// ── ROI CENTER ────────────────────────────────────────────────────────────────
+const ROI_DATA={
+  day:{fuelL:[8200,8400,8600,8800,9000,9200,9400,9600,9800,10000,10200,10400],fuelR:[1.8,1.85,1.9,1.95,2.0,2.05,2.1,2.15,2.2,2.25,2.3,2.4],co2:[3.2,3.4,3.6,3.8,4.0,4.2,4.4,4.6,4.8,4.8,4.8,4.8],time:[180,200,220,240,260,280,300,320,340,360,380,400],econ:[12,13,14,15,16,17,17.5,18,18.2,18.4,18.5,18.6],
+    kpis:[{l:'Fuel Saved',v:'9,800L',d:'₹2.4L/day',c:'c-yellow'},{l:'Productivity',v:'400 hrs',d:'Citizen time/day',c:'c-cyan'},{l:'CO₂ Reduced',v:'4.8 t',d:'Tons/day',c:'c-green'},{l:'Economic Impact',v:'₹18.6L',d:'Per day',c:'c-blue'},{l:'Delivery Efficiency',v:'+31%',d:'Fleet gain',c:'c-green'},{l:'Emergency Gain',v:'-61%',d:'ETA reduction',c:'c-red'},{l:'Citizen Time',v:'14.8K min',d:'Saved/day',c:'c-violet'},{l:'Fleet Utilization',v:'+18%',d:'Warehouse throughput',c:'c-orange'}]},
+  week:{fuelL:[68000],fuelR:[16.8],co2:[33.6],time:[2800],econ:[130.2],
+    kpis:[{l:'Fuel Saved',v:'68,600L',d:'₹16.8L/week',c:'c-yellow'},{l:'Productivity',v:'2,800 hrs',d:'Per week',c:'c-cyan'},{l:'CO₂ Reduced',v:'33.6 t',d:'Per week',c:'c-green'},{l:'Economic Impact',v:'₹1.3 Cr',d:'Per week',c:'c-blue'},{l:'Delivery Efficiency',v:'+31%',d:'Sustained',c:'c-green'},{l:'Emergency Gain',v:'-61%',d:'Avg improvement',c:'c-red'},{l:'Citizen Time',v:'103K min',d:'Per week',c:'c-violet'},{l:'Fleet Utilization',v:'+18%',d:'Avg gain',c:'c-orange'}]},
+  month:{fuelL:[294000],fuelR:[72],co2:[144],time:[12000],econ:[558],
+    kpis:[{l:'Fuel Saved',v:'294K L',d:'₹72L/month',c:'c-yellow'},{l:'Productivity',v:'12K hrs',d:'Per month',c:'c-cyan'},{l:'CO₂ Reduced',v:'144 t',d:'Per month',c:'c-green'},{l:'Economic Impact',v:'₹5.58 Cr',d:'Per month',c:'c-blue'},{l:'Delivery Efficiency',v:'+31%',d:'Monthly avg',c:'c-green'},{l:'Emergency Gain',v:'-61%',d:'Monthly avg',c:'c-red'},{l:'Citizen Time',v:'444K min',d:'Per month',c:'c-violet'},{l:'Fleet Utilization',v:'+18%',d:'Monthly avg',c:'c-orange'}]},
+  year:{fuelL:[3570000],fuelR:[876],co2:[1752],time:[146000],econ:[6786],
+    kpis:[{l:'Fuel Saved',v:'3.57M L',d:'₹8.76 Cr/year',c:'c-yellow'},{l:'Productivity',v:'146K hrs',d:'Per year',c:'c-cyan'},{l:'CO₂ Reduced',v:'1,752 t',d:'Per year',c:'c-green'},{l:'Economic Impact',v:'₹67.9 Cr',d:'Per year',c:'c-blue'},{l:'Delivery Efficiency',v:'+31%',d:'Annual avg',c:'c-green'},{l:'Emergency Gain',v:'-61%',d:'Annual avg',c:'c-red'},{l:'Citizen Time',v:'5.4M min',d:'Per year',c:'c-violet'},{l:'Fleet Utilization',v:'+18%',d:'Annual avg',c:'c-orange'}]},
+};
+let roiCharts={};
+function initRoiCenter(){
+  S.roiScale='day';
+  renderRoiKpis();
+  const d=ROI_DATA.day;
+  const hrs=Array.from({length:12},(_,i)=>`${6+i}:00`);
+  const mk=(id,label,data,color)=>{roiCharts[id]=new Chart(document.getElementById(id),{type:'line',data:{labels:hrs,datasets:[{label,data,borderColor:color,backgroundColor:color+'18',fill:true,tension:.4,borderWidth:2,pointRadius:2}]},options:chartOpts({legend:false})});};
+  mk('chart-roi-fuel','Fuel ₹L',d.fuelR,'#ffd740');
+  mk('chart-roi-co2','CO₂ t',d.co2,'#00e676');
+  mk('chart-roi-time','Hours',d.time.map(v=>v/10),'#00d4ff');
+  mk('chart-roi-econ','₹L',d.econ,'#3b9eff');
+}
+function renderRoiKpis(){
+  const d=ROI_DATA[S.roiScale||'day'];
+  document.getElementById('roi-kpis').innerHTML=d.kpis.map(k=>`
+    <div class="kcard kcard-pro"><div class="kl">${k.l}</div><div class="kv ${k.c}">${k.v}</div><div class="kd">${k.d}</div>
+    <div class="kpi-meta"><span>Model: Impact Analytics Engine</span><span>Conf: 92.4%</span><span>Updated: ${metaTime()}</span></div></div>`).join('');
+}
+function setRoiScale(s){
+  S.roiScale=s;
+  ['day','week','month','year'].forEach(x=>{const b=document.getElementById('roi-'+x);if(b){b.className='btn '+(x===s?'btn-blue':'');if(x!==s)b.style='background:var(--bg3);border-color:var(--b2);color:var(--text2);';}});
+  renderRoiKpis();
+}
+
+// ── COMPETITIVE ADVANTAGE ───────────────────────────────────────────────────────
+function initAdvantage(){
+  const rows=[
+    ['Traffic Monitoring','Yes','Yes'],['Congestion Prediction','No','Yes'],['Incident Detection','Limited','AI'],
+    ['Smart Signals','Limited','AI'],['Emergency Routing','No','Yes'],['Logistics Optimization','No','Yes'],
+    ['Digital Twin Simulation','No','Yes'],['Explainable AI','No','Yes'],['Business Impact Analytics','No','Yes'],
+  ];
+  document.getElementById('cmp-table').innerHTML=`<thead><tr><th>Capability</th><th>Traditional Systems</th><th class="cmp-win">Gridlock 2.0</th></tr></thead><tbody>`+
+    rows.map(r=>`<tr><td>${r[0]}</td><td class="${r[1]==='Yes'?'cmp-yes':r[1]==='Limited'?'cmp-lim':'cmp-no'}">${r[1]==='Yes'?'✓ Yes':r[1]==='Limited'?'◐ Limited':'✗ No'}</td><td class="cmp-win cmp-yes">✓ ${r[2]==='Yes'?'Yes':'AI'}</td></tr>`).join('')+'</tbody>';
+  S.charts.advantage=new Chart(document.getElementById('chart-advantage'),{
+    type:'radar',data:{labels:rows.map(r=>r[0].split(' ')[0]),datasets:[
+      {label:'Traditional',data:[9,2,4,4,1,1,1,1,1],borderColor:'#ff8c42',backgroundColor:'rgba(255,140,66,.1)',borderWidth:2},
+      {label:'Gridlock 2.0',data:[9,9,9,9,9,9,9,9,9],borderColor:'#00e676',backgroundColor:'rgba(0,230,118,.15)',borderWidth:2},
+    ]},options:{plugins:{legend:{labels:{color:'#8099b8'}}},scales:{r:{min:0,max:10,ticks:{color:'#4a6280',backdropColor:'transparent'},grid:{color:'rgba(99,179,255,.08)'},pointLabels:{color:'#8099b8',font:{size:9}}}}}
+  });
+}
+
+function refreshIncidentMarkers(){
+  incidentMarkers.forEach(m=>{try{mapC&&mapC.removeLayer(m);map2C&&map2C.removeLayer(m);}catch(e){}});
+  incidentMarkers=[];
+  INCIDENTS.forEach(inc=>{
+    [mapC,map2C].forEach(map=>{
+      if(!map)return;
+      const m=L.marker([inc.lat,inc.lng],{icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,14],
+        html:`<div style="font-size:18px;filter:drop-shadow(0 0 6px ${inc.color});">${inc.icon}</div>`
+      })}).bindPopup(`<div class="popup-t">${inc.type}</div>
+        <div class="popup-r"><span class="popup-k">Location</span><span class="popup-v">${inc.location}</span></div>
+        <div class="popup-r"><span class="popup-k">Severity</span><span class="popup-v" style="color:${inc.color}">${inc.severity}</span></div>
+        <div class="popup-r"><span class="popup-k">Delay</span><span class="popup-v">+${inc.delay} min</span></div>`
+      ).addTo(map);
+      incidentMarkers.push(m);
+    });
+  });
+}
+
+function refreshAllDashboards(){
+  renderCommandCenter();
+  renderZoneList();
+  renderPredGrid();
+  refreshMapMarkers();
+  updateCmdPredictChart();
+  renderIncidents();
+  renderFleet(S.fleetOptimized);
+  renderSignalsGrid(S.sigsOptimized);
+  renderXAI();
+  updateMapKPIs();
+  if(typeof renderAdminStats==='function')renderAdminStats();
+  document.getElementById('admin-inc-count')&&(document.getElementById('admin-inc-count').textContent=INCIDENTS.length);
+  document.getElementById('inc-total')&&(document.getElementById('inc-total').textContent=INCIDENTS.length);
+}
+
+// ── DEMO ORCHESTRATOR ─────────────────────────────────────────────────────────
+const DEMO_STEPS=[
+  {text:'✅ Step 1: Traffic normal — all 18 zones monitored, baseline CI stable across Bengaluru...',panel:'command',baseline:true},
+  {text:'💥 Step 2: ACCIDENT at Silk Board Junction — CI spiking to 0.97, sensor anomaly detected...',panel:'command'},
+  {text:'🚨 Step 3: AI Incident Detection — 96% confidence, Critical severity, 2.8km impact radius',panel:'incidents'},
+  {text:'🔮 Step 4: Prediction Engine forecasts gridlock — 5 zones affected in next 60 minutes',panel:'predict'},
+  {text:'🧠 Step 5: AI explains why — accident + peak demand + lane blockage at Silk Board',panel:'xai'},
+  {text:'🚑 Step 6: Emergency ambulance request — NIMHANS Hospital to accident site',panel:'emergency'},
+  {text:'🛣️ Step 7: GREEN CORRIDOR activated — 4 signals overridden, corridor cleared in 45s',panel:'emergency'},
+  {text:'🚦 Step 8: Smart Signal Optimization — 6 junctions optimized, +31% throughput',panel:'signals'},
+  {text:'🔀 Step 9: Dynamic Rerouting — 2,847 vehicles diverted to alternate corridors',panel:'map'},
+  {text:'📦 Step 10: Flipkart Fleet AI — 9 at-risk deliveries recovered, SLA protected',panel:'flipkart'},
+  {text:'💰 Step 11: Economic impact calculated — ₹18.6L productivity, 4.8t CO₂ avoided',panel:'roi'},
+  {text:'📋 Step 12: Executive summary generated — full impact report ready for deployment',panel:'executive',final:true},
+];
+
+let demoRunning=false;
+let demoStepIndex=0;
+
+function updateDemoStageUI(){
+  const el=document.getElementById('admin-demo-stage');
+  const det=document.getElementById('admin-demo-stage-detail');
+  if(!demoRunning){if(el)el.textContent='Idle';if(det)det.textContent='Stage: Idle — 0/'+DEMO_STEPS.length;return;}
+  const st=demoStepIndex+1;
+  if(el)el.textContent='Step '+st+'/'+DEMO_STEPS.length;
+  if(det)det.textContent='Stage: '+(DEMO_STEPS[demoStepIndex]?.text?.substring(0,40)||'Running')+'… — '+st+'/'+DEMO_STEPS.length;
+}
+
+function startDemo(){
+  if(demoRunning&&!S.demoPaused)return;
+  if(S.demoPaused){resumeDemo();return;}
+  demoRunning=true;S.demoPaused=false;demoStepIndex=0;
+  document.getElementById('demo-final').classList.remove('show');
+  document.getElementById('demo-overlay').classList.add('show');
+  document.getElementById('demo-dots').innerHTML=DEMO_STEPS.map((_,i)=>`<div class="demo-step-dot" id="ddot-${i}">${i+1}</div>`).join('');
+  document.getElementById('demo-btn').classList.add('running');
+  document.getElementById('demo-btn').textContent='⏳ Running Demo...';
+  document.getElementById('demo-close-btn').style.display='none';
+  if(typeof adminTimeline==='function')adminTimeline('Full demo sequence initiated');
+  runDemoStep();
+}
+
+function runDemoStep(){
+  if(S.demoPaused)return;
+  if(demoStepIndex>=DEMO_STEPS.length){
+    showDemoFinalReport();
+    setTimeout(()=>{
+      document.getElementById('demo-close-btn').style.display='block';
+      document.getElementById('demo-btn').classList.remove('running');
+      document.getElementById('demo-btn').innerHTML='✅ Demo Complete';
+      demoRunning=false;updateDemoStageUI();
+    },1200);
+    return;
+  }
+  document.querySelectorAll('.demo-step-dot').forEach((el,i)=>{
+    el.className='demo-step-dot'+(i<demoStepIndex?' done':i===demoStepIndex?' current':'');
+  });
+  const s=DEMO_STEPS[demoStepIndex];
+  document.getElementById('demo-step-text').textContent=s.text;
+  document.getElementById('demo-pfill').style.width=((demoStepIndex+1)/DEMO_STEPS.length*100)+'%';
+  triggerDemoEffect(demoStepIndex);
+  toast(s.text.substring(0,55)+'...','i');
+  updateDemoStageUI();
+  demoStepIndex++;
+  clearTimeout(S.demoTimer);
+  S.demoTimer=setTimeout(runDemoStep,6800);
+}
+
+function pauseDemo(){
+  if(!demoRunning)return;
+  S.demoPaused=true;clearTimeout(S.demoTimer);
+  document.getElementById('demo-step-text').textContent='⏸ DEMO PAUSED — Click Resume to continue';
+  toast('Demo paused','w');updateDemoStageUI();
+}
+function resumeDemo(){
+  if(!demoRunning)return;
+  S.demoPaused=false;toast('Demo resumed','s');runDemoStep();
+}
+function skipDemoStep(){
+  if(!demoRunning)return;
+  clearTimeout(S.demoTimer);runDemoStep();
+}
+function restartDemo(){
+  resetDemo();setTimeout(startDemo,400);
+}
+function resetDemo(){
+  clearTimeout(S.demoTimer);S.demoPaused=false;demoRunning=false;demoStepIndex=0;
+  document.getElementById('demo-overlay').classList.remove('show');
+  document.getElementById('demo-final').classList.remove('show');
+  document.getElementById('demo-btn').innerHTML='⚡ RUN FULL DEMO';
+  document.getElementById('demo-btn').classList.remove('running');
+  updateDemoStageUI();
+}
+
+function triggerDemoEffect(step){
+  const s=DEMO_STEPS[step];
+  switch(step){
+    case 0:
+      S.zones=ZONES.map(z=>({...z}));
+      refreshMapMarkers();renderZoneList();renderCommandCenter();updateMapKPIs();
+      break;
+    case 1:
+      const z=S.zones.find(z=>z.id==='z1');if(z)z.ci=.97;
+      refreshMapMarkers();renderZoneList();renderCommandCenter();
+      break;
+    case 2:
+      show('incidents');
+      break;
+    case 3:
+      renderPredGrid();
+      if(!S.chartsInit.predict){initPredictCharts();S.chartsInit.predict=true;}
+      break;
+    case 4:
+      renderXAI();
+      break;
+    case 5:
+      S.emgVehicle='v1';selectVehicle('v1');
+      break;
+    case 6:
+      renderEmgRoute(true);activateGreenCorridor();
+      break;
+    case 7:
+      optimizeSignals();
+      break;
+    case 8:
+      S.rerouteOn=true;
+      S.zones.forEach(z=>{if(z.ci>.65)z.ci=Math.max(.3,z.ci-.18);});
+      refreshMapMarkers();renderZoneList();
+      break;
+    case 9:
+      optimizeFleet();
+      break;
+    case 10:
+      if(!S.chartsInit.roi){initRoiCenter();S.chartsInit.roi=true;}
+      break;
+    case 11:
+      break;
+  }
+  show(s.panel);
+}
+
+function showDemoFinalReport(){
+  document.getElementById('demo-step-text').textContent='🎉 LIVE PRODUCT DEMONSTRATION COMPLETE — Gridlock 2.0 deployment-ready for Bengaluru & Flipkart';
+  document.getElementById('demo-pfill').style.width='100%';
+  document.querySelectorAll('.demo-step-dot').forEach(el=>el.className='demo-step-dot done');
+  const items=[
+    {v:'14,820 min',l:'Travel Time Saved',c:'var(--green)'},
+    {v:'9,800 L',l:'Fuel Saved',c:'var(--yellow)'},
+    {v:'4.8 t',l:'CO₂ Reduced',c:'var(--cyan)'},
+    {v:'₹18.6L',l:'Revenue Protected',c:'var(--blue)'},
+    {v:'+5.7%',l:'Delivery Success ↑',c:'var(--green)'},
+    {v:'-61%',l:'Emergency ETA ↓',c:'var(--red)'},
+  ];
+  document.getElementById('demo-final-grid').innerHTML=items.map(i=>`
+    <div class="demo-final-item"><div class="demo-final-v" style="color:${i.c}">${i.v}</div><div class="demo-final-l">${i.l}</div></div>`).join('');
+  document.getElementById('demo-final').classList.add('show');
+  toast('🏆 Executive impact report generated — ready for judges','s');
+}
+
+function closeDemoOverlay(){
+  document.getElementById('demo-overlay').classList.remove('show');
+  document.getElementById('demo-final').classList.remove('show');
+  document.getElementById('demo-btn').innerHTML='⚡ RUN FULL DEMO';
+  demoRunning=false;
+  S.demoPaused=false;
+  demoStepIndex=0;
+  clearTimeout(S.demoTimer);
+  updateDemoStageUI();
+}
+
+// ── REROUTE / SIGNAL TOGGLE (MAP PANEL) ───────────────────────────────────────
+function toggleReroute(){
+  S.rerouteOn=!S.rerouteOn;
+  if(S.rerouteOn){
+    S.zones.forEach(z=>{if(z.ci>.70)z.ci=Math.max(.2,z.ci-.15);});
+    document.getElementById('btn-reroute').innerHTML='✅ Rerouting ON';
+    document.getElementById('btn-reroute').className='btn btn-green';
+    toast('🔀 Dynamic Rerouting — ACTIVATED','s');
+  }else{
+    S.zones=ZONES.map(z=>({...z}));
+    document.getElementById('btn-reroute').innerHTML='🔀 Rerouting';
+    document.getElementById('btn-reroute').className='btn btn-blue';
+    toast('🔀 Rerouting deactivated','w');
+  }
+  refreshMapMarkers();renderZoneList();updateMapKPIs();
+}
+function toggleSignals(){
+  S.signalsOn=!S.signalsOn;
+  if(S.signalsOn){
+    document.getElementById('btn-sigs').innerHTML='✅ Signals ON';
+    document.getElementById('btn-sigs').className='btn btn-green';
+    toast('🚦 Signal Optimization — ACTIVATED','s');
+  }else{
+    document.getElementById('btn-sigs').innerHTML='🚦 Signals';
+    document.getElementById('btn-sigs').className='btn btn-green';
+    toast('🚦 Signals deactivated','w');
+  }
+}
+
+function updateMapKPIs(){
+  const cong=S.zones.filter(z=>z.ci>=.75).length;
+  const smooth=S.zones.filter(z=>z.ci<.50).length;
+  document.getElementById('kpi-cong').textContent=cong;
+  document.getElementById('kpi-smooth').textContent=smooth;
+  document.getElementById('cmd-kpi-alerts').textContent=cong;
+  document.getElementById('alert-count').textContent=cong;
+  document.getElementById('cmd-badge').textContent=cong;
+  document.getElementById('cmd-kpi-crit').textContent=S.zones.filter(z=>z.ci>=.80).length;
+  document.getElementById('inc-badge').textContent=INCIDENTS.length;
+}
+
+// ── LIVE SIMULATION TICKS ─────────────────────────────────────────────────────
+setInterval(()=>{
+  if(!demoRunning){
+    S.zones.forEach(z=>{z.ci=Math.max(.05,Math.min(.99,z.ci+(Math.random()-.5)*.012));});
+    refreshMapMarkers();
+  }
+},4000);
+
+// ── REFRESH COUNTDOWN ─────────────────────────────────────────────────────────
+setInterval(()=>{
+  S.refreshTimer--;
+  document.getElementById('ref-ct').textContent=S.refreshTimer+'s';
+  if(S.refreshTimer<=0){
+    S.refreshTimer=30;
+    toast('📡 Data refreshed — all 18 zones updated','i');
+  }
+},1000);
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  try{
+    initMaps();
+    renderCommandCenter();
+    renderZoneList();
+    renderIncidents();
+    renderScenarios();
+    renderVehicles();
+    renderEmgRoute(false);
+    renderFleet(false);
+    renderSignalsGrid(false);
+    renderXAI();
+    updateMapKPIs();
+    toast('✅ Bengaluru City Intelligence Platform — All 18 modules online','s');
+    document.getElementById('copilot-chips').innerHTML=COPILOT_CHIPS.map(c=>`<span class="copilot-chip" onclick="sendCopilot('${c.replace(/'/g,"\\'")}')">${c}</span>`).join('');
+    initAllMeta();
+    setTimeout(()=>toast('🔮 AI Prediction Engine: Silk Board CI 0.74 → 0.94 forecast (60min)','i'),2000);
+    setTimeout(()=>toast('🚨 Alert: 8 active incidents detected across Bengaluru','e'),4000);
+    initWebSocket();
+    if(typeof initAdmin==='function')initAdmin();
+    if(typeof initPlatform==='function')initPlatform();
+  }catch(err){
+    console.error('Gridlock init error:',err);
+    toast('⚠️ Init error — hard refresh (Ctrl+F5). Check console.','e');
+  }
+});
+</script>
+<script src="js/admin.js"></script>
+<script src="js/platform.js"></script>
+</body>
+</html>
